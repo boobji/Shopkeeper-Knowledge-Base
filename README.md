@@ -107,20 +107,38 @@ graph TD
 
 ### 1. 环境准备
 
-需要提前准备以下服务（可用 Docker 快速起）：
+- **Docker & Docker Compose** — 用于一键启动下面四个基础服务
+- **MinerU** — PDF 解析（独立 CLI，非 Python 依赖）：`pip install mineru`
 
-- **Milvus** — 向量数据库
-- **Neo4j** — 图数据库
-- **MongoDB** — 会话历史
-- **MinIO** — 文件对象存储
-- **MinerU** — PDF 解析：`pip install mineru`
+四个外部服务已全部编排进 `docker-compose.yml`，无需手动安装：
 
-### 2. 安装依赖
+| 服务 | 用途 | 端口 |
+|---|---|---|
+| Milvus 3.0（含 etcd + 专用存储） | 向量数据库 | 19530 |
+| Neo4j 5.26 LTS | 知识图谱 | 7474 / 7687 |
+| MongoDB 7.0 | 会话历史 | **27018**（避开本机已装的 27017，可用 `MONGO_PORT` 覆盖） |
+| MinIO | 图片/文件对象存储 | 9000 / 9001 |
+
+### 2. 启动外部服务（Docker Compose）
 
 ```bash
-git clone <your-repo-url>
-cd Shopkeeper_Knowledge_Base
+# 在项目根目录执行，拉起全部依赖服务
+docker compose up -d
 
+# 查看状态，等待全部变为 healthy（Milvus 首次启动约需 1 分钟）
+docker compose ps
+
+# 一键自检：四个服务是否连通、配置是否填对
+python scripts/check_env.py
+```
+
+> - MinIO 容器启动时会自动建桶 `shopkeeper-kb` 并设为公开读，无需手动初始化。
+> - 本机已装 MongoDB 且想继续用它：`docker compose up -d milvus neo4j minio minio-init`（跳过 mongodb）。
+> - 彻底清理数据：`docker compose down -v`。
+
+### 3. 安装依赖
+
+```bash
 python -m venv .venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate  # Linux / macOS
@@ -130,15 +148,16 @@ pip install -r requirements.txt
 
 > `pymilvus[model]` 会连带安装 `torch`，体积较大，请预留磁盘空间与下载时间。
 
-### 3. 配置
+### 4. 配置
 
 ```bash
 cp .env.example knowledge/.env
 ```
 
 然后编辑 `knowledge/.env`，填入你自己的密钥与服务地址（该文件已被 `.gitignore` 忽略，不会提交）。
+默认值与 `docker-compose.yml` 已对齐：除了 LLM 的 API Key，其余服务配置开箱即用，无需修改。
 
-### 4. 启动服务
+### 5. 启动服务
 
 在项目**根目录**下执行：
 
@@ -242,12 +261,12 @@ LangChain 的 `OpenAIEmbeddings` 接非官方 OpenAI 端点时会先把文本 to
 
 ## 🗺 Roadmap
 
+- [x] Docker Compose 一键部署（`docker-compose.yml` + `scripts/check_env.py` 环境自检）
 - [ ] 多文档批量导入与增量更新
 - [ ] 检索结果溯源高亮（定位到原文段落）
 - [ ] 支持更多文档格式（Word / Excel / HTML）
 - [ ] 检索效果评测集与自动化评估
 - [ ] 用户与权限体系
-- [ ] Docker Compose 一键部署
 
 ---
 

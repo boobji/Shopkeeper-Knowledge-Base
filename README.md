@@ -212,6 +212,28 @@ curl -X POST http://localhost:8001/query \
 
 ---
 
+## 📊 检索效果评测
+
+内置 `eval/` 评测框架（30 条正例 + 3 条负例，人工标注自真实切片），量化检索质量而不是凭感觉调参：
+
+```bash
+python eval/run_eval.py                # 向量检索 vs 混合检索+BGE重排 两种模式对比
+python eval/run_eval.py --self-test    # 无服务自检：只验证指标计算
+```
+
+输出指标：
+
+| 指标 | 含义 |
+|---|---|
+| Hit@k | 期望段落出现在 top-k 的比例 |
+| Recall@k | 期望段落被覆盖的比例（多答案题更有区分度） |
+| MRR@5 | 第一个命中结果排名倒数的均值 |
+| nDCG@5 | 折损累积增益，综合衡量排序位置质量 |
+
+每次运行会在 `eval/reports/` 留下 Markdown 报告，逐条展示命中位次，方便定位 badcase。评测集格式见 `eval/retrieval_eval_set.json`，新增商品文档后按同样格式追加用例即可。
+
+---
+
 ## 📁 项目结构
 
 ```
@@ -262,10 +284,10 @@ LangChain 的 `OpenAIEmbeddings` 接非官方 OpenAI 端点时会先把文本 to
 ## 🗺 Roadmap
 
 - [x] Docker Compose 一键部署（`docker-compose.yml` + `scripts/check_env.py` 环境自检）
+- [x] 检索效果评测集与自动化评估（`eval/`，Recall@K / MRR / nDCG）
 - [ ] 多文档批量导入与增量更新
 - [ ] 检索结果溯源高亮（定位到原文段落）
 - [ ] 支持更多文档格式（Word / Excel / HTML）
-- [ ] 检索效果评测集与自动化评估
 - [ ] 用户与权限体系
 
 ---

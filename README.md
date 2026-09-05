@@ -47,7 +47,7 @@
 ┌──────────┴─────────────────────────────────┴────────────────┐
 │                      存储与模型层                             │
 │   Milvus(向量)  Neo4j(图谱)  MongoDB(历史)  MinIO(文件)        │
-│   BGE-M3(嵌入)  BGE-Reranker(重排)  LLM / VLM                 │
+│   BGE-M3(本地嵌入)  BGE-Reranker(本地重排)  LLM/VLM(云端)     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -92,14 +92,28 @@ graph TD
 |---|---|
 | Web 框架 | FastAPI + Uvicorn |
 | 流程编排 | LangGraph |
-| LLM 接入 | OpenAI 兼容接口（可对接百炼 / DeepSeek / vLLM） |
-| 嵌入模型 | BGE-M3（稠密 + 稀疏混合向量） |
-| 重排序 | BGE-Reranker-v2-m3 |
+| LLM 接入 | OpenAI 兼容接口（**云端 API**：可对接百炼 / DeepSeek / 本地 vLLM） |
+| 嵌入模型 | **BGE-M3**（本地推理：稠密 + 稀疏混合向量） |
+| 重排序 | **BGE-Reranker-v2-m3**（本地推理） |
 | 向量数据库 | Milvus |
 | 图数据库 | Neo4j |
 | 文档存储 | MongoDB（会话历史）、MinIO（文件对象） |
-| PDF 解析 | MinerU（命令行调用） |
+| PDF 解析 | **MinerU**（本地 CLI，模型来自 ModelScope） |
 | 实时推送 | Server-Sent Events (SSE) |
+
+---
+
+> 💡 本项目 **LLM / VLM（视觉语言模型）** 走云端 OpenAI 兼容接口（百炼 / DeepSeek / 本地 vLLM 均可），需填写 API Key；其余 **三个推理模型全部本地运行**，无需联网、不消耗云端额度。
+
+### 🧠 本地模型组件（3 个）
+
+| 模型 | 作用 | 加载方式 | 关键配置 |
+|---|---|---|---|
+| **MinerU** | PDF → Markdown 解析（保留标题层级 / 表格 / 图片） | 本地 CLI `mineru` 命令（独立安装，非 Python 依赖） | `MINERU_MODEL_SOURCE=modelscope`、`MODELSCOPE_CACHE` 缓存目录 |
+| **BGE-M3** | 文本嵌入，同时产出稠密向量（语义）+ 稀疏向量（关键词） | `pymilvus.model.hybrid.BGEM3EmbeddingFunction` 本地加载 | `BGE_M3_PATH`（默认 `BAAI/bge_m3`）、`BGE_DEVICE` |
+| **BGE-Reranker-v2-m3** | 多路检索结果精排打分，决定最终送入 LLM 的段落 | `FlagEmbedding.FlagReranker` 本地加载 | `BGE_RERANKER_PATH`（默认 `BAAI/bge-reranker-v2-m3`）、`BGE_RERANKER_DEVICE` |
+
+首次运行会自动从 **ModelScope / HuggingFace** 拉取上述权重并缓存到 `./model_cache`（由 `MODELSCOPE_CACHE` / `HF_HOME` 控制）。需要完全离线时：先在有网环境拉取一次，再把 `.env` 中 `MODELSCOPE_OFFLINE` 设为 `1` 即可。
 
 ---
 

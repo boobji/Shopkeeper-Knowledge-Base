@@ -1,0 +1,14 @@
+torch
+torchvision
+minio
+langchain-openai
+langgraph
+grandalf
+pymilvus[milvus_lite]
+pymilvus[model]
+sentence-transformers
+neo4j
+pymongo
+mineru[all]
+openai-agents
+mcp<2.0

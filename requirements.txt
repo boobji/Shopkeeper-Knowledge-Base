@@ -1,0 +1,47 @@
+# ==========================================================
+# 掌柜智库 (Shopkeeper Knowledge Base) - 依赖清单
+# 安装: pip install -r requirements.txt
+# 建议 Python 3.10+，在独立虚拟环境中使用
+# ==========================================================
+
+# ---------- Web 服务 ----------
+fastapi
+uvicorn[standard]
+python-dotenv
+
+# ---------- LLM / RAG 基础 ----------
+openai
+langchain-openai
+langchain-core
+langchain-community
+langchain-text-splitters
+langgraph
+pydantic
+
+# ---------- 存储与检索 ----------
+# 注意: [model] 会一并安装 torch，体积较大（用于 BGE-M3 稀疏+稠密混合向量）
+pymilvus[model]
+neo4j
+pymongo
+minio
+
+# ---------- 重排序 ----------
+FlagEmbedding
+
+# ---------- Agent / MCP ----------
+openai-agents
+mcp<2.0
+
+# ---------- 通用工具 ----------
+beautifulsoup4
+requests
+
+# ==========================================================
+# 额外说明：mineru（PDF -> Markdown 解析）
+# 本项目通过 subprocess 调用 mineru 命令行把 PDF 转成 Markdown，
+# 它不在上面的 Python 依赖里，需要单独安装：
+#
+#     pip install mineru
+#
+# 安装后请确认命令可用：mineru --help
+# ==========================================================

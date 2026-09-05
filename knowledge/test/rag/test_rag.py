@@ -17,7 +17,7 @@ os.environ["OPENAI_API_BASE"] = os.getenv("OPENAI_API_BASE", "")
 
 # 2. Neo4j 连接配置（密码不写死在代码里）
 NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_USER = os.getenv("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
 
 # 3. 初始化 LLM 和 Embedding

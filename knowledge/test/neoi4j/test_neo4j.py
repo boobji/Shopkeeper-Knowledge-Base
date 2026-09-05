@@ -8,7 +8,7 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / ".env", override=T
 
 # ========== 1. 建立连接 ==========
 URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-AUTH = (os.getenv("NEO4J_USER", "neo4j"), os.getenv("NEO4J_PASSWORD", ""))
+AUTH = (os.getenv("NEO4J_USERNAME", "neo4j"), os.getenv("NEO4J_PASSWORD", ""))
 DATABASE = "neo4j"
 
 driver = GraphDatabase.driver(URI, auth=AUTH)

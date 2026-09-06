@@ -34,10 +34,12 @@ class MarkdownTableLinearizer:
         html_content = match.group(0)
         soup = BeautifulSoup(html_content, "html.parser")
         table = soup.find("table")
-        if not table: return html_content
+        if not table:
+            return html_content
 
         rows = table.find_all("tr")
-        if not rows: return html_content
+        if not rows:
+            return html_content
 
         # 嗅探 HTML 中是否使用了标准的 <th> 表头标签
         has_th = len(table.find_all("th")) > 0
@@ -58,8 +60,10 @@ class MarkdownTableLinearizer:
                 text = cell.get_text(separator=" ", strip=True)
 
                 for r in range(row_idx, row_idx + rowspan):
-                    while len(grid) <= r: grid.append([])
-                    while len(grid[r]) < col_idx + colspan: grid[r].append(None)
+                    while len(grid) <= r:
+                        grid.append([])
+                    while len(grid[r]) < col_idx + colspan:
+                        grid[r].append(None)
                     for c in range(col_idx, col_idx + colspan):
                         grid[r][c] = text
                 col_idx += colspan
@@ -72,7 +76,8 @@ class MarkdownTableLinearizer:
         lines = md_text.split('\n')
         grid = []
         for line in lines:
-            if re.match(r'^[ \t]*\|[ \t\-|:]+\|[ \t]*$', line): continue
+            if re.match(r'^[ \t]*\|[ \t\-|:]+\|[ \t]*$', line):
+                continue
             cells = [cell.strip() for cell in line.strip('|').split('|')]
             grid.append(cells)
         # Markdown 表格天生自带表头结构
@@ -80,12 +85,14 @@ class MarkdownTableLinearizer:
 
     @classmethod
     def _grid_to_text(cls, grid: List[List[str]], is_md: bool, has_th: bool) -> str:
-        if not grid or not grid[0]: return ""
+        if not grid or not grid[0]:
+            return ""
 
         cols_count = max(len(r) for r in grid)
         # 补齐不规则行的列数，防越界
         for r in grid:
-            while len(r) < cols_count: r.append("")
+            while len(r) < cols_count:
+                r.append("")
 
         is_header_row = False
         if is_md or has_th:
@@ -112,7 +119,8 @@ class MarkdownTableLinearizer:
             headers = grid[0]
             for r in grid[1:]:
                 # 跳过完全空的数据行
-                if not any(r): continue
+                if not any(r):
+                    continue
 
                 subject = r[0] if r[0] else "未知项目"
                 subject_header = headers[0] if headers[0] else ""

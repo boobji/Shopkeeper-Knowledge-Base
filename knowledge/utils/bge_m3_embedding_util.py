@@ -1,27 +1,33 @@
 from pymilvus.model.hybrid import BGEM3EmbeddingFunction
 from typing import Optional, List
-import os, logging
+import os
+import logging
+import threading
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-from pathlib import Path
-from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
-
-_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(dotenv_path=_ENV_FILE, override=True)
 bge_m3_ef: Optional[BGEM3EmbeddingFunction] = None
+_bge_m3_lock = threading.Lock()
 
 
 def get_bge_m3_embedding_model():
     global bge_m3_ef
     if bge_m3_ef is not None:
         return bge_m3_ef
+    with _bge_m3_lock:
+        return _load_bge_m3()
+
+
+def _load_bge_m3():
+    global bge_m3_ef
+    if bge_m3_ef is not None:
+        return bge_m3_ef
     # 1.获取参数
     model_name = os.getenv('BGE_M3_PATH', 'BAAI/bge_m3')
     device = os.getenv('BGE_DEVICE', 'cpu')
-    use_fp16 = os.getenv('BGE_FP16', False)
+    # 环境变量是字符串，必须显式解析布尔值，避免 "0"/"false" 被当成真值
+    use_fp16 = os.getenv('BGE_FP16', '').strip().lower() in ('1', 'true', 'yes', 'on')
     try:
         # 定义对象
         bge_m3_ef = BGEM3EmbeddingFunction(
@@ -29,7 +35,7 @@ def get_bge_m3_embedding_model():
             device=device,
             use_fp16=use_fp16
         )
-    except Exception as e:
+    except Exception:
         return None
 
     return bge_m3_ef
@@ -76,7 +82,7 @@ def generate_hybrid_embeddings(embedding_model: BGEM3EmbeddingFunction, embeddin
             "dense": [den.tolist() for den in embedding_result["dense"]],
             "sparse": processed_sparse_result
         }
-    except Exception as e:
+    except Exception:
         return None
 
 

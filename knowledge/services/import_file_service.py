@@ -1,6 +1,3 @@
-from dotenv import load_dotenv
-
-load_dotenv()
 import os.path
 import uuid
 from datetime import datetime
@@ -11,7 +8,7 @@ from knowledge.core.paths import get_local_base_dir
 from knowledge.utils.minio_util import get_minio_client
 from knowledge.services.task_service import TaskService
 from knowledge.processor.import_process.state import ImportGraphState
-from knowledge.processor.import_process.main_graph import kb_import__graph_app
+from knowledge.processor.import_process.main_graph import import_graph_app
 
 
 class ImportFileService:
@@ -44,8 +41,9 @@ class ImportFileService:
         # 1. 确保归档目录存在
         os.makedirs(file_dir, exist_ok=True)
 
-        # 2. 构建上传文件的完整的path
-        import_file_path = os.path.join(file_dir, file.filename)
+        # 2. 构建上传文件的完整的path（清洗文件名，防路径穿越与绝对路径注入）
+        safe_filename = os.path.basename(file.filename or "") or "upload.bin"
+        import_file_path = os.path.join(file_dir, safe_filename)
 
         # 3. 写入(批量的写入shutil.copyfileobj(file.file,f))
         with open(import_file_path, 'wb') as f:
@@ -72,8 +70,8 @@ class ImportFileService:
         if not minio_client:
             raise HTTPException(status_code=500, detail="MinIO 服务不可用")
 
-        # 3. 构建Minio客户端对象名（归档文件）
-        minio_object_name = f"origin_files/{datetime.now().strftime('%Y%d%m')}/{file.filename}"
+        # 3. 构建Minio客户端对象名（归档文件，日期格式与本地目录保持一致 YYYYMMDD）
+        minio_object_name = f"origin_files/{datetime.now().strftime('%Y%m%d')}/{file.filename}"
 
         # 4. 获取桶名
         bucket_name = os.getenv("MINIO_BUCKET_NAME")
@@ -143,7 +141,7 @@ class ImportFileService:
             }
 
             # 3. 流式执行整个导入流水线
-            for event in kb_import__graph_app.stream(global_graph_init_status):
+            for event in import_graph_app.stream(global_graph_init_status):
                 for key, value in event.items():
                     print(f"[{task_id}] Completed Node: {key}")
 

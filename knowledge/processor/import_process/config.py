@@ -7,13 +7,8 @@
 from dataclasses import dataclass, field
 from typing import Set, Optional
 import os
-from pathlib import Path
-from dotenv import load_dotenv
 
-# 显式指定 .env 位置，避免受运行目录(CWD)影响导致配置加载不到
-# config.py 位于 knowledge/processor/import_process/，向上 3 层到 knowledge/ 即为 .env 所在目录
-_ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
-load_dotenv(dotenv_path=_ENV_FILE)
+# 环境变量由 knowledge/__init__.py → core.config.load_env() 统一加载，此处直接读取
 
 
 @dataclass

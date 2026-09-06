@@ -1,4 +1,3 @@
-import json
 import time
 import subprocess
 import shutil
@@ -7,7 +6,7 @@ from typing import Tuple
 from subprocess import TimeoutExpired
 import sys
 
-from knowledge.processor.import_process.base import (BaseNode,setup_logging)
+from knowledge.processor.import_process.base import (BaseNode)
 from knowledge.processor.import_process.exceptions import ValidationError,FileProcessingError,PdfConversionError
 from knowledge.processor.import_process.state import ImportGraphState
 
@@ -158,13 +157,3 @@ class PdfToMdNode(BaseNode):
         file_name = import_file_path.stem
         md_path = file_dir_path / file_name / 'auto' / f'{file_name}.md'
         return str(md_path)
-
-if __name__ == '__main__':
-    setup_logging()
-    pdf_to_md_node = PdfToMdNode()
-    pdf_to_md_node_init_state = {
-        'import_file_path':r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir\万用表RS-12的使用.pdf',
-        'file_dir':r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir',
-    }
-    processed_result = pdf_to_md_node.process(pdf_to_md_node_init_state)
-    print(json.dumps(processed_result, indent=4, ensure_ascii=False))

@@ -1,47 +1,15 @@
 """查询流程自定义异常类
 
 统一错误处理，提供更清晰的错误信息。
+异常基类与消息格式在 core.exceptions.ProcessError 中统一定义。
 """
 
+from knowledge.core.exceptions import ProcessError
 
-class QueryProcessError(Exception):
-    """查询流程基础异常。
 
-    Attributes:
-        node_name: 发生异常的节点名称。
-        cause: 原始异常对象。
-    """
-
-    def __init__(
-            self,
-            message: str,
-            node_name: str = "",
-            cause: Exception = None
-    ):
-        """初始化异常。
-
-        Args:
-            message: 错误信息。
-            node_name: 节点名称。
-            cause: 原始异常。
-        """
-        self.node_name = node_name
-        self.cause = cause
-        super().__init__(message)
-
-    def __str__(self):
-        """格式化异常信息。
-
-        Returns:
-            包含节点名称和原因的完整错误信息。
-        """
-        parts = []
-        if self.node_name:
-            parts.append(f"[{self.node_name}]")
-        parts.append(super().__str__())
-        if self.cause:
-            parts.append(f"(原因: {self.cause})")
-        return " ".join(parts)
+class QueryProcessError(ProcessError):
+    """查询流程基础异常。"""
+    pass
 
 
 class StateFieldError(QueryProcessError):

@@ -1,4 +1,3 @@
-import json
 from typing import Tuple, List, Dict, Any, Optional
 
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -111,7 +110,7 @@ class ItemNameRecognitionNode(BaseNode):
                 return file_title
             self.logger.info(f'提取到的商品名:{item_name}')
             return item_name
-        except Exception as e:
+        except Exception:
             self.logger.error(f'LLM调用失败，安全回退到标题名：{file_title}')
             return file_title
 
@@ -222,27 +221,3 @@ class ItemNameRecognitionNode(BaseNode):
         for chunk in chunks:
             chunk["item_name"] = item_name # 方便下游大模型
         state["item_name"] = item_name # 方便程序员
-
-
-if __name__ == '__main__':
-    # 1.读取文件
-    chunk_json_path = r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir\万用表RS-12的使用\auto\chunks.json'
-    output_path = r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir\万用表RS-12的使用\auto\chunks_item.json'
-
-    with open(chunk_json_path, 'r', encoding='utf-8') as f:
-        chunk_content = json.load(f)
-
-    # 2.构建state
-    start = {
-        'file_title':'万用表的使用',
-        'chunks':chunk_content
-    }
-
-    # 3.实例化节点
-    item_name_recognition_node = ItemNameRecognitionNode()
-
-    # 4.调用process
-    result = item_name_recognition_node.process(start)
-
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(result, f, ensure_ascii=False, indent=4)

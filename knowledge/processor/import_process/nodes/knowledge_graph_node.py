@@ -1,4 +1,7 @@
-import json, time, re, logging
+import json
+import time
+import re
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from json import JSONDecodeError
@@ -16,66 +19,18 @@ from knowledge.utils.neo4j_util import get_neo4j_driver
 from knowledge.utils.llm_client_util import get_llm_client
 from knowledge.utils.bge_m3_embedding_util import get_bge_m3_embedding_model
 
-# ------------------------------------------
-# 常量
-# ------------------------------------------
-MAX_ENTITY_NAME_LENGTH = 15
-
-# ------------------------------------------
-# 白名单
-# ------------------------------------------
-# 实体标签白名单
-ALLOWED_ENTITY_LABELS: Set[str] = {
-    "Device", "Part", "Operation", "Step",
-    "Warning", "Condition", "Tool",
-}
-# 关系类型白名单
-ALLOWED_RELATION_TYPES: Set[str] = ({
-    "HAS_OPERATION", "HAS_PART", "HAS_STEP", "USES_TOOL",
-    "HAS_WARNING", "NEXT_STEP", "AFFECTS", "REQUIRES",
-    "MENTIONED_IN", "RELATED_TO",
-})
-DEFAULT_RELATION_TYPES = "RELATED_TO"
-
-# ------------------------------------------
-# Neo4J的Cypher语句
-# ------------------------------------------
-# Chunk标签节点创建
-CYPHER_MERGE_CHUNK = """
-    MERGE (c:Chunk {id: $chunk_id, item_name: $item_name})
-"""
-
-# Entity标签节点的创建
-CYPHER_MERGE_ENTITY_TEMPLATE = """
-    MERGE (n:Entity {{name: $name, item_name: $item_name}})
-    ON CREATE SET
-        n.source_chunk_id = $chunk_id,
-        n.description     = $description
-    ON MATCH SET
-        n.description = CASE
-            WHEN $description <> "" THEN $description
-            ELSE coalesce(n.description, "")
-        END
-    SET n:`{label}`
-"""
-# Entity关联Chunk
-CYPHER_LINK_ENTITY_TO_CHUNK = """
-    MATCH (n:Entity {name: $name, item_name: $item_name})
-    MATCH (c:Chunk  {id: $chunk_id, item_name: $item_name})
-    MERGE (n)-[:MENTIONED_IN]->(c)
-"""
-
-# Entity与Entity的关系
-CYPHER_MERGE_RELATION_TEMPLATE = """
-    MATCH (h:Entity {{name: $head, item_name: $item_name}})
-    MATCH (t:Entity {{name: $tail, item_name: $item_name}})
-    MERGE (h)-[:{rel_type}]->(t)
-"""
-
-# 清理Neo4J数据
-CYPHER_CLEAR_ITEM = """
-    MATCH (n {item_name: $item_name}) DETACH DELETE n
-"""
+# 图结构常量与 Cypher 统一来自 domain/kg_schema（导入 Writer 与查询 Reader 共用同一套定义）
+from knowledge.domain.kg_schema import (  # noqa: E402
+    ALLOWED_ENTITY_LABELS,
+    ALLOWED_RELATION_TYPES,
+    CYPHER_CLEAR_ITEM,
+    CYPHER_LINK_ENTITY_TO_CHUNK,
+    CYPHER_MERGE_CHUNK,
+    CYPHER_MERGE_ENTITY_TEMPLATE,
+    CYPHER_MERGE_RELATION_TEMPLATE,
+    DEFAULT_RELATION_TYPES,
+    MAX_ENTITY_NAME_LENGTH,
+)
 
 
 @dataclass
@@ -345,7 +300,7 @@ class _MilvusEntityWriter:
         return records
 
 
-class KnowLedgeGraphNode(BaseNode):
+class KnowledgeGraphNode(BaseNode):
     name = "knowledge_graph_node"
 
     def __init__(self, config: Optional[ImportConfig] = None):
@@ -485,7 +440,7 @@ class KnowLedgeGraphNode(BaseNode):
         # 1. 获取LLM客户端
         llm_client = get_llm_client()
         if llm_client is None:
-            raise ValueError(f"LLM客户端初始化失败")
+            raise ValueError("LLM客户端初始化失败")
 
         MAX_COUNT = 3
         last_error = None
@@ -537,7 +492,7 @@ class KnowLedgeGraphNode(BaseNode):
 
         # 1. 判断
         if not llm_response:
-            raise ValueError(f"LLM提取chunk的图谱信息不存在")
+            raise ValueError("LLM提取chunk的图谱信息不存在")
 
         # 2. 清洗json代码块的围栏
         # 2.1 前面的7个非法字符踢掉```json
@@ -783,37 +738,3 @@ class KnowLedgeGraphNode(BaseNode):
                     msg = f"切片 {chunk_id} 处理失败: {e}"
                     stats.errors.append(msg)
                     self.logger.error(msg)
-
-
-def test_kg_extraction():
-    """测试：模拟单个切片，跑通 LLM → 解析 → 清洗全流程。"""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
-
-    mock_state = {
-        "item_name": "测试万用表",
-        "chunks": [
-            {
-                "content": """# 电池安装
-                    警告: 为防触电, 打开电池后盖前后，请勿操作仪表并把表笔与电源断开。
-                    1. 把表笔与仪表断开。
-                    2. 用螺丝刀拧开电池后盖上的螺母。
-                    3. 正确安装电池，正负极应一致。
-                    4. 盖上电池后盖并拧紧螺丝钉。
-                    警告: 为防触电,在电池后盖安装和固定之前，请勿操作仪表。
-                    注意: 若仪表出现工作不正常，请检测保险丝和电池是否完好以及是否放在正确的位置。""",
-                "chunk_id": "18438591111",
-                "item_name": "测试万用表",
-            }
-        ],
-    }
-
-    knowledge_graph_node = KnowLedgeGraphNode()
-
-    knowledge_graph_node.process(mock_state)
-
-
-if __name__ == "__main__":
-    test_kg_extraction()

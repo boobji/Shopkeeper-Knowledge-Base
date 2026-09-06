@@ -7,9 +7,8 @@ logger = logging.getLogger(__name__)
 
 from typing import Dict, Any, List, Tuple, Union
 from agents.mcp import MCPServerStreamableHttp  # pip install openai-agents, mcp<2.0
-from langchain_core.messages import SystemMessage, HumanMessage
 from knowledge.processor.query_process.state import QueryGraphState
-from knowledge.processor.query_process.base import BaseNode, T
+from knowledge.processor.query_process.base import BaseNode
 from knowledge.processor.query_process.exceptions import StateFieldError
 
 
@@ -21,7 +20,7 @@ class McpSearchNode(BaseNode):
      百度：【电商】商品比价工具、商品搜索的工具、商品全维度对比工具、商品下单的工具 百度搜索工具 百度地图的工具..
      灵积服务平台:的通用搜索工具【bailian_web_search】
      mcp: 本质：就是各大平台把通用的功能，封装成了工具（函数） 然后通过mcp协议 客户端就可以直接调用它。【mcp客户端】---->【mcp服务端：任意选择某一个】
-     
+
     """
 
     def process(self, state: QueryGraphState) -> Union[QueryGraphState, Dict[str, Any]]:
@@ -33,7 +32,8 @@ class McpSearchNode(BaseNode):
         mcp_result = asyncio.run(self._create_execute_web_search(validated_rewritten_query))
 
         if not mcp_result:
-            return state
+            # 并行分支节点：失败/空结果必须返回增量更新（见 vector_search_node 说明）
+            return {}
 
         # 3. 更新state web_search_docs
 
@@ -115,23 +115,8 @@ class McpSearchNode(BaseNode):
                     search_result.append({"snippet": snippet, "title": title, "url": url})
                 # c) 最终返回
                 return search_result
-            except Exception as e:
+            except Exception:
                 self.logger.error("反序列MCP结果失败")
                 return []
         finally:
             await  mcp_client.cleanup()  # 关闭连接
-
-
-if __name__ == '__main__':
-    state = {
-        # "rewritten_query": "万用表如何测量电阻",
-        "rewritten_query": "今天的小米的股价是多少",
-        "item_names": ["RS-12 数字万用表"]  # 对齐
-    }
-
-    mcp_search = McpSearchNode()
-
-    result = mcp_search.process(state)
-
-    for r in result.get('web_search_docs'):
-        print(json.dumps(r, ensure_ascii=False, indent=2))

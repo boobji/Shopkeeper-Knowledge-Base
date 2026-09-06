@@ -1,6 +1,6 @@
 from typing import Dict, Any, List, Tuple
 from knowledge.processor.query_process.state import QueryGraphState
-from knowledge.processor.query_process.base import BaseNode, setup_logging
+from knowledge.processor.query_process.base import BaseNode
 
 
 class RrfNode(BaseNode):
@@ -110,50 +110,3 @@ class RrfNode(BaseNode):
             key=lambda x: x[1], reverse=True
         )
         return sorted_results[:_top_k] if _top_k else sorted_results
-
-
-
-
-if __name__ == "__main__":
-
-
-    print("=" * 60)
-    print("开始测试: RRF 融合节点")
-    print("=" * 60)
-
-    # 模拟三路检索结果
-    # chunk_1 命中 3 路（预期最高分）
-    # chunk_2 命中 2 路
-    # chunk_3, chunk_4, chunk_5 各命中 1 路
-    mock_state = {
-        "embedding_chunks": [
-            {"entity": {"chunk_id": "chunk_1", "content": "向量搜索结果#1"}},
-            {"entity": {"chunk_id": "chunk_2", "content": "向量搜索结果#2"}},
-            {"entity": {"chunk_id": "chunk_3", "content": "向量搜索结果#3"}},
-        ],
-        "hyde_embedding_chunks": [
-            {"entity": {"chunk_id": "chunk_2", "content": "HyDE搜索结果#1"}},
-            {"entity": {"chunk_id": "chunk_1", "content": "HyDE搜索结果#2"}},
-            {"entity": {"chunk_id": "chunk_4", "content": "HyDE搜索结果#3"}},
-        ],
-        "kg_chunks": [
-            {"id": None, "distance": 2.0, "entity": {"chunk_id": "chunk_5", "content": "知识图谱结果#1"}},
-            {"id": None, "distance": 1.0, "entity": {"chunk_id": "chunk_1", "content": "知识图谱结果#2"}},
-        ],
-    }
-
-    print("【输入状态】:")
-    print(f"  embedding_chunks: {len(mock_state['embedding_chunks'])} 条")
-    print(f"  hyde_embedding_chunks: {len(mock_state['hyde_embedding_chunks'])} 条")
-    print(f"  kg_chunks: {len(mock_state['kg_chunks'])} 条")
-    print("-" * 60)
-
-    rrf_node = RrfNode()
-    result = rrf_node.process(mock_state)
-
-    print("\n【融合结果】:")
-    for i, chunk in enumerate(result["rrf_chunks"], 1):
-        print(f"[{i}] {chunk.get('chunk_id')} - {chunk.get('content')}")
-
-    print("-" * 60)
-    print("测试完成")

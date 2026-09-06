@@ -1,0 +1,30 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "integration: 需要外部服务（Milvus/Neo4j/Mongo/MinIO）的集成测试",
+]
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+extend-exclude = [
+    "knowledge/.venv",
+    "knowledge/test",
+    "eval",
+    "scripts",
+]
+
+[tool.ruff.lint]
+# 基线阶段只开基础正确性检查，逐步收严（isort 等后续再开）
+# E402：历史代码存在模块级语句（load_dotenv/logging.basicConfig）置于 import 之前的写法，
+#       现配置加载已统一到 core/config.py，剩余的模块级 logging 初始化待逐步清理后移除豁免
+select = ["E", "F", "W"]
+ignore = ["E501", "E402"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+# 宽松起步：先不强制类型标注，后续按模块收严
+check_untyped_defs = false
+exclude = 'knowledge/\.venv|knowledge/test|eval|scripts'

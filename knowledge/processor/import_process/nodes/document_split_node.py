@@ -5,7 +5,7 @@ from typing import Tuple, List, Dict, Any
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from knowledge.processor.import_process.base import (BaseNode, setup_logging)
+from knowledge.processor.import_process.base import (BaseNode)
 from knowledge.processor.import_process.exceptions import ValidationError
 from knowledge.processor.import_process.state import ImportGraphState
 from knowledge.processor.import_process.config import get_config
@@ -53,7 +53,7 @@ class DocumentSplitNode(BaseNode):
 
         # 4.校验最小值
         if config.max_content_length <= 0 or config.min_content_length <= 0 or config.max_content_length <= config.min_content_length:
-            raise ValidationError(f'切片长度校验失败')
+            raise ValidationError('切片长度校验失败')
 
         return md_content, file_title, config.max_content_length, config.min_content_length
 
@@ -333,18 +333,3 @@ class DocumentSplitNode(BaseNode):
             self.logger.info(f"已备份到: {output_path}")
         except Exception as e:
             self.logger.warning(f"备份失败: {e}")
-
-
-if __name__ == '__main__':
-    setup_logging()
-    document_node = DocumentSpliterNode()
-    file_path = r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir\万用表RS-12的使用\auto\万用表RS-12的使用_new.md'
-    with open(file_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-    state = {
-        "file_title": "万用表的使用",
-        "md_content": content,
-        # 指向你想输出 JSON 的备份目录
-        "file_dir": r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir\万用表RS-12的使用\auto'
-    }
-    document_node.process(state)

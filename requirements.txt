@@ -2,39 +2,43 @@
 # 掌柜智库 (Shopkeeper Knowledge Base) - 依赖清单
 # 安装: pip install -r requirements.txt
 # 建议 Python 3.10+，在独立虚拟环境中使用
+#
+# 版本已按当前可运行环境钉死（2026-09）。
+# pymilvus / langgraph / FlagEmbedding / mcp 等库 API 随版本漂移明显
+# （稀疏向量格式、LangGraph API 均踩过坑），升级前请先跑 tests/ 与 eval/。
 # ==========================================================
 
 # ---------- Web 服务 ----------
-fastapi
-uvicorn[standard]
-python-dotenv
+fastapi==0.141.1
+uvicorn[standard]==0.52.2
+python-dotenv==1.2.2
 
 # ---------- LLM / RAG 基础 ----------
-openai
-langchain-openai
-langchain-core
-langchain-community
-langchain-text-splitters
-langgraph
-pydantic
+openai==2.54.0
+langchain-openai==1.4.3
+langchain-core==1.5.4
+langchain-community==0.4.2
+langchain-text-splitters==1.1.2
+langgraph==1.2.11
+pydantic==2.13.4
 
 # ---------- 存储与检索 ----------
 # 注意: [model] 会一并安装 torch，体积较大（用于 BGE-M3 稀疏+稠密混合向量）
-pymilvus[model]
-neo4j
-pymongo
-minio
+pymilvus[model]==3.0.1
+neo4j==6.2.0
+pymongo==4.17.0
+minio==7.2.20
 
 # ---------- 重排序 ----------
-FlagEmbedding
+FlagEmbedding==1.4.0
 
 # ---------- Agent / MCP ----------
-openai-agents
-mcp<2.0
+openai-agents==0.20.0
+mcp>=1.29,<2.0
 
 # ---------- 通用工具 ----------
-beautifulsoup4
-requests
+beautifulsoup4==4.15.0
+requests==2.34.2
 
 # ==========================================================
 # 额外说明：mineru（PDF -> Markdown 解析）

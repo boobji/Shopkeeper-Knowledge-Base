@@ -26,7 +26,7 @@ class TaskService:
 
     # 4. 查询任务状态
     def get_task_status(self, task_id: str):
-        get_task_status(task_id)
+        return get_task_status(task_id)
 
     # 5. 查询任务信息(任务的全局信息)
     def get_task_info(self, task_id: str):

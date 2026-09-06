@@ -1,4 +1,3 @@
-import json
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -6,7 +5,7 @@ logger = logging.getLogger(__name__)
 
 from typing import Dict, Any, List, Tuple, Union
 from knowledge.processor.query_process.state import QueryGraphState
-from knowledge.processor.query_process.base import BaseNode, T
+from knowledge.processor.query_process.base import BaseNode
 from knowledge.processor.query_process.exceptions import StateFieldError
 from knowledge.utils.bge_m3_embedding_util import get_bge_m3_embedding_model, generate_hybrid_embeddings
 from knowledge.utils.milvus_util import get_milvus_client, create_hybrid_search_requests, execute_hybrid_search_query
@@ -23,12 +22,16 @@ class VectorSearchNode(BaseNode):
         embedding_model = get_bge_m3_embedding_model()
         milvus_client = get_milvus_client()
         if embedding_model is None or milvus_client is None:
-            return state
+            # 并行分支节点：失败/空结果必须返回增量更新，
+            # 返回整个 state 会与其他并行节点并发写 session_id，触发 InvalidUpdateError
+            return {}
 
         # 3. 对问题向量化(稀疏向量做了字典的处理) 注意：【generate_hybrid_embeddings】
         embedding_result = generate_hybrid_embeddings(embedding_model, embedding_documents=[validated_query])
         if not embedding_result:
-            return state
+            # 并行分支节点：失败/空结果必须返回增量更新，
+            # 返回整个 state 会与其他并行节点并发写 session_id，触发 InvalidUpdateError
+            return {}
 
         # 4. 构建过滤表达式
         item_name_filter_expr = self._item_name_filter(validate_item_names)
@@ -50,7 +53,9 @@ class VectorSearchNode(BaseNode):
             output_fields=["chunk_id", "content", "item_name"]
         )
         if not reps or not reps[0]:
-            return state
+            # 并行分支节点：失败/空结果必须返回增量更新，
+            # 返回整个 state 会与其他并行节点并发写 session_id，触发 InvalidUpdateError
+            return {}
 
         # 5. 更新state的embedding_chunks
         return {"embedding_chunks": reps[0]}
@@ -79,17 +84,3 @@ class VectorSearchNode(BaseNode):
         quoted = ", ".join(f'"{v}"' for v in validate_item_names)
         # filter = 'item_name in ["商品A", "商品B", "商品C"]'v   # 标量字段（动态字段）进行过滤
         return f" item_name in [{quoted}]"
-
-
-if __name__ == '__main__':
-    state = {
-        "rewritten_query": "万用表如何测量电阻",
-        "item_names": ["RS-12 数字万用表"]  # 对齐
-    }
-
-    vector_search = VectorSearchNode()
-
-    result = vector_search.process(state)
-    #
-    for r in result.get('embedding_chunks'):
-        print(json.dumps(r, ensure_ascii=False, indent=2))

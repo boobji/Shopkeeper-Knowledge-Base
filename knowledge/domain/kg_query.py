@@ -189,14 +189,10 @@ class EntityExtractor:
 
         """
 
-        # 1. 获取llm客户端
+        # 1. 获取llm客户端（连接失败会抛 LLMError，由 BaseNode 包装为任务失败）
         llm_client = get_llm_client(response_format=True)
 
-        # 2. 判断
-        if llm_client is None:
-            return []
-
-        # 3. 获取提示词
+        # 2. 获取提示词
         entities_name_extract_system_prompt = ENTITY_EXTRACT_SYSTEM_PROMPT.format(
             MAX_ENTITY_NAME_LENGTH=MAX_ENTITY_NAME_LENGTH)
 
@@ -248,19 +244,11 @@ class EntityAligner:
         if not entity_names:
             return fallback_result
 
-        # 2. 获取嵌入模型
+        # 2. 获取嵌入模型 / milvus客户端（失败会抛异常，快速暴露而非静默降级）
         embedding_model = get_bge_m3_embedding_model()
-        if embedding_model is None:
-            self._logger.error("嵌入模型不存在")
-            return fallback_result
-
-        # 3. 获取milvus客户端
         milvus_client = get_milvus_client()
-        if milvus_client is None:
-            self._logger.error("Milvus客户端不存在")
-            return fallback_result
 
-        # 4. 向量化实体名
+        # 3. 向量化实体名
         embedding_result = generate_hybrid_embeddings(embedding_model=embedding_model, embedding_documents=entity_names)
 
         # 5. 检验嵌入结果
@@ -436,14 +424,8 @@ class Neo4jGraphReader:
         self._logger = logging.getLogger(self.__class__.__name__)
 
     def _session(self):
-        # 1.获取驱动
+        # 获取驱动（失败会抛 Neo4jError）
         neo4j_driver = get_neo4j_driver()
-
-        # 2. 判断驱动是否存在
-        if neo4j_driver is None:
-            raise RuntimeError("Neo4J驱动获取失败")
-
-        # 3. 返回session对象
         return neo4j_driver.session(database=self._database)
 
     def find_seed_nodes(self, pairs: List[ItemEntityPair]) -> List[EntitySeedNode]:

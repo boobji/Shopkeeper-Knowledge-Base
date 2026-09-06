@@ -4,6 +4,8 @@ import threading
 
 from langchain_openai import ChatOpenAI
 
+from knowledge.core.exceptions import LLMError
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -49,4 +51,5 @@ def get_llm_client(model_name: str = None, temperature: float = 0.0, response_fo
             cache_llm_client[cache_key] = client
         return client
     except Exception as e:
-        logger.error('LLM的客户端创建失败', {str(e)})
+        logger.error(f"LLM 客户端创建失败: {e}")
+        raise LLMError(f"LLM 客户端创建失败: {e}", cause=e)

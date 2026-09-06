@@ -39,4 +39,8 @@ class Neo4jError(StorageError):
 
 
 class EmbeddingError(StorageError):
-    """嵌入模型调用失败。"""
+    """本地模型（BGE 嵌入 / 重排）加载或调用失败。"""
+
+
+class LLMError(ProcessError):
+    """LLM 客户端创建或调用失败。"""

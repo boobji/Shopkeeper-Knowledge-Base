@@ -7,6 +7,7 @@
 
 from knowledge.core.exceptions import (  # noqa: F401 存储类错误两侧共用 core 的统一定义
     EmbeddingError,
+    LLMError,
     MilvusError,
     Neo4jError,
     ProcessError,
@@ -41,11 +42,6 @@ class ImageProcessingError(FileProcessingError):
 
 class DocumentSplitError(ImportProcessError):
     """文档切分错误：切分逻辑异常"""
-    pass
-
-
-class LLMError(ImportProcessError):
-    """LLM 调用错误：API 调用失败、响应解析失败"""
     pass
 
 

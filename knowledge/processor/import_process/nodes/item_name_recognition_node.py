@@ -4,7 +4,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from pymilvus import DataType
 
 from knowledge.processor.import_process.base import (BaseNode)
-from knowledge.processor.import_process.exceptions import ValidationError, EmbeddingError
+from knowledge.processor.import_process.exceptions import ValidationError, EmbeddingError, LLMError
 from knowledge.processor.import_process.state import ImportGraphState
 from knowledge.processor.import_process.config import get_config
 from knowledge.utils.bge_m3_embedding_util import get_bge_m3_embedding_model
@@ -82,10 +82,12 @@ class ItemNameRecognitionNode(BaseNode):
 
     def _recognition_item_name_by_llm(self, file_title: str, item_name_context: str) -> str:
         self.log_step('step3', 'LLM识别商品名')
-        # 1.实例化LLm客户端
-        llm_client = get_llm_client()
-        if llm_client is None:
-            self.logger.error(f'LLM初始化失败，安全回退到标题名：{file_title}')
+        # 1.实例化LLM客户端
+        # 有意降级：导入场景下 LLM 不可用时回退文件标题，而不是让整个导入失败
+        try:
+            llm_client = get_llm_client()
+        except LLMError as e:
+            self.logger.error(f'LLM初始化失败({e})，安全回退到标题名：{file_title}')
             return file_title
 
         # 2.构建LLM提示词(格式化用户提示词模板)

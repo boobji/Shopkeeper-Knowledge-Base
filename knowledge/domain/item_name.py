@@ -72,19 +72,11 @@ class ItemNameAligner:
         # 1. 定义最终搜索结果
         search_results = []
 
-        # 2. 获取milvus_client
+        # 2. 获取milvus客户端 / 嵌入模型（失败会抛异常，快速暴露而非静默降级）
         milvus_client = get_milvus_client()
-        if milvus_client is None:
-            return []
-
-        # 3. 获取嵌入模型
         embedding_model = get_bge_m3_embedding_model()
-        if embedding_model is None:
-            logger.error("获取嵌入模型失败")
 
-            return search_results
-
-        # 4. 嵌入item_name获取稠密、稀疏向量
+        # 3. 嵌入item_name获取稠密、稀疏向量
         hybrid_embedding_result = generate_hybrid_embeddings(embedding_model, item_names)
 
         # 4. 遍历LLM提取的所有商品名
@@ -248,10 +240,8 @@ class ItemNameExtractor:
 
         result: Dict[str, Any] = {"item_names": [], "rewritten_query": original_query}
 
-        # 1. 获取LLM客户端
+        # 1. 获取LLM客户端（失败会抛 LLMError，由 BaseNode 包装为任务失败）
         llm_client = get_llm_client(response_format=True)
-        if llm_client is None:
-            return result
 
         # 2. 定义提示词(用户级别的)
         human_prompt = ITEM_NAME_EXTRACT_TEMPLATE.format(history_text=history_text if history_text else "暂无上下文",

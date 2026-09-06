@@ -16,7 +16,7 @@ from typing import Any, Dict, List
 
 from pymilvus import MilvusClient, DataType
 
-from knowledge.core.exceptions import EmbeddingError, MilvusError, Neo4jError
+from knowledge.core.exceptions import MilvusError, Neo4jError
 from knowledge.domain.kg_schema import (
     CYPHER_CLEAR_ITEM,
     CYPHER_LINK_ENTITY_TO_CHUNK,
@@ -54,9 +54,6 @@ class Neo4jGraphWriter:
         self._logger = logging.getLogger(self.__class__.__name__)
 
     def clear(self, neo4j_driver, item_name: str) -> None:
-        if not neo4j_driver:
-            raise Neo4jError("Neo4j 驱动获取失败")
-
         try:
             with self._session(neo4j_driver) as session:
                 session.execute_write(
@@ -84,10 +81,6 @@ class Neo4jGraphWriter:
         # 1. 判断实体是否存在
         if not entities:
             raise ValueError("参数校验失败，实体列表为空")
-
-        # 2.  判断驱动
-        if not driver:
-            raise Neo4jError("Neo4j 驱动获取失败")
 
         try:
             with self._session(driver) as session:
@@ -142,9 +135,6 @@ class MilvusEntityWriter:
     def clear(self, milvus_client: MilvusClient, item_name: str):
 
         # 1. 清理 Milvus
-        if not milvus_client:
-            raise MilvusError("Milvus 客户端获取失败")
-
         collection_name = self.collection_name
         try:
             if milvus_client.has_collection(collection_name):
@@ -168,11 +158,8 @@ class MilvusEntityWriter:
         if not entities_names:
             raise ValueError("参数校验失败，无有效实体名")
 
-        # 3. 获取嵌入模型
+        # 3. 获取嵌入模型（加载失败会抛 EmbeddingError）
         bge_ef_model = get_bge_m3_embedding_model()
-
-        if bge_ef_model is None:
-            raise EmbeddingError("嵌入模型获取失败")
 
         # 4. 创建集合（不存在则创建）
         try:

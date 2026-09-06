@@ -4,6 +4,8 @@ import os
 import logging
 import threading
 
+from knowledge.core.exceptions import EmbeddingError
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -35,8 +37,9 @@ def _load_bge_m3():
             device=device,
             use_fp16=use_fp16
         )
-    except Exception:
-        return None
+    except Exception as e:
+        logger.error(f"BGE-M3 嵌入模型加载失败: {e}")
+        raise EmbeddingError(f"BGE-M3 嵌入模型加载失败: {e}", cause=e)
 
     return bge_m3_ef
 

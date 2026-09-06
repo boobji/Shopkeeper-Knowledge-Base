@@ -26,12 +26,9 @@ class HyDeSearchNode(BaseNode):
         # 2. 生成假设性文档
         hy_document = self._generate_hy_document(validated_query, validate_item_names)
 
-        # 3. 获取嵌入模型 & milvus客户端
+        # 3. 获取嵌入模型 & milvus客户端（不可用会抛异常 → 任务失败，而非静默空结果）
         embedding_model = get_bge_m3_embedding_model()
         milvus_client = get_milvus_client()
-        if not embedding_model or not milvus_client:
-            # 并行分支节点：失败/空结果必须返回增量更新（见 vector_search_node 说明）
-            return {}
 
         # 4. 假设性文档嵌入(注入问题+假设性文档)
         embedding_document = f"{validated_query}\n{hy_document}"
@@ -83,14 +80,10 @@ class HyDeSearchNode(BaseNode):
 
     def _generate_hy_document(self, validated_query: str, validate_item_names: List[str]) -> str:
 
-        # 1. 获取LLM客户端
+        # 1. 获取LLM客户端（失败会抛 LLMError → 任务失败）
         llm_client = get_llm_client()
 
-        # 2. 判断
-        if llm_client is None:
-            return ""
-
-        # 3. 获取系统提示词以及用户提示词
+        # 2. 获取系统提示词以及用户提示词
         user_prompt = USER_HYDE_PROMPT_TEMPLATE.format(item_hint=validate_item_names, rewritten_query=validated_query)
         system_prompt = f"您是一位{validate_item_names}的技术文档领域的专家，主要擅长编写技术文档、操作手册、文档规格说明"
         try:

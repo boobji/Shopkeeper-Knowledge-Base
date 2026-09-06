@@ -6,6 +6,7 @@
 
 from knowledge.core.exceptions import (  # noqa: F401 存储类错误两侧共用 core 的统一定义
     EmbeddingError,
+    LLMError,
     MilvusError,
     Neo4jError,
     ProcessError,
@@ -57,14 +58,6 @@ class SearchError(QueryProcessError):
     """搜索错误。
 
     向量搜索、混合搜索或网络搜索失败时抛出。
-    """
-    pass
-
-
-class LLMError(QueryProcessError):
-    """LLM 调用错误。
-
-    API 调用失败、响应解析失败时抛出。
     """
     pass
 

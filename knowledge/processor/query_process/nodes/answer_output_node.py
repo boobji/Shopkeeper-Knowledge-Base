@@ -45,8 +45,6 @@ class AnswerOutputNode(BaseNode):
     def _generate_answer(self, state, prompt):
         self.log_step("generate", "生成答案")
         llm_client = get_llm_client()
-        if llm_client is None:
-            raise ValueError("LLM 客户端初始化失败")
 
         task_id = state["task_id"]
 
@@ -158,8 +156,6 @@ class AnswerOutputNode(BaseNode):
     def _invoke_generate(self, prompt: str) -> str:
         self.log_step("generate", "生成答案")
         llm_client = get_llm_client()
-        if llm_client is None:
-            raise ValueError("LLM 客户端初始化失败")
         try:
             response = llm_client.invoke(prompt)
             return response.content

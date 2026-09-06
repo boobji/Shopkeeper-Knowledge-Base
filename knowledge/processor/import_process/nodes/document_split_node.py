@@ -194,9 +194,10 @@ class DocumentSplitNode(BaseNode):
             return [section]
 
         # 5.切（定义langchain递归切分器'\n\n','\n','。','！'... 2.切分)
+        # 相邻切片保留一定重叠：答案句恰好骑在切片边界上时仍可被检索到
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=body_length,
-            chunk_overlap=0,
+            chunk_overlap=max(0, min(self.config.chunk_overlap, body_length // 2)),
             # 优雅降级策略：优先按双换行切，再按单换行，最后按标点和空格
             separators=["\n\n", "\n", "。", "！", "？", "；", ".", "!", "?", ";", " "],
             keep_separator=False,

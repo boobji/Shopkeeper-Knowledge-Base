@@ -9,7 +9,7 @@ from knowledge.utils.task_util import update_task_status, get_task_result, \
     get_task_status, get_done_task_list, get_running_task_list, \
     TASK_STATUS_PROCESSING, TASK_STATUS_COMPLETED, TASK_STATUS_FAILED, set_task_result
 from knowledge.processor.query_process.main_graph import query_app
-from knowledge.utils.sse_util import create_sse_queue, push_sse_event
+from knowledge.utils.sse_util import SSEEvent, create_sse_queue, push_sse_event
 
 # from knowledge.utils.sse_util import create_sse_queue, push_sse_event
 
@@ -44,6 +44,9 @@ class QueryService:
             logger.error(f"查询流程执行失败: {e}", exc_info=True)
             update_task_status(task_id, TASK_STATUS_FAILED)
             set_task_result(task_id, "error", str(e))
+            # 推送 error 事件让前端结束等待并展示错误，否则界面会一直停在生成中
+            if is_stream:
+                push_sse_event(task_id, SSEEvent.ERROR, {"error": str(e)})
         else:
             update_task_status(task_id, TASK_STATUS_COMPLETED)
         finally:

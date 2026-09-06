@@ -10,6 +10,7 @@ class SSEEvent:
     PROGRESS = "progress"   # 任务节点进度
     DELTA = "delta"         # LLM 流式输出增量
     FINAL = "final"         # 最终完整答案
+    ERROR = "error"         # 任务执行失败（前端收到后结束等待并展示错误）
 
 
 # 全局 SSE 任务队列存储

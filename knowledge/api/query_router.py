@@ -3,10 +3,11 @@
 import os
 
 import uvicorn
-from fastapi import BackgroundTasks, HTTPException, Request, Depends, FastAPI
+from fastapi import HTTPException, Request, Depends, FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
 
 from knowledge.core.app_factory import create_app
+from knowledge.core.background import run_in_daemon_thread
 from knowledge.core.paths import get_front_page_dir
 from knowledge.core.deps import get_query_service
 from knowledge.schema.query_schema import QueryRequest, QueryResponse, StreamSubmitResponse
@@ -28,7 +29,6 @@ def register_routes(app: FastAPI):
     @app.post("/query")
     async def query(
         request: QueryRequest,
-        background_tasks: BackgroundTasks,
         service: QueryService = Depends(get_query_service),
     ):
         session_id = request.session_id or service.generate_session_id()
@@ -36,7 +36,8 @@ def register_routes(app: FastAPI):
         service.submit_query(task_id, request.is_stream)
 
         if request.is_stream:
-            background_tasks.add_task(
+            # daemon 线程承载长耗时查询，避免 uvicorn 关闭时被后台任务卡住
+            run_in_daemon_thread(
                 service.run_query_graph, task_id, session_id, request.query, True
             )
             return StreamSubmitResponse(
@@ -75,4 +76,4 @@ def register_routes(app: FastAPI):
 
 if __name__ == "__main__":
     setup_logging()
-    uvicorn.run(app=build_app(), host="0.0.0.0", port=8001)
+    uvicorn.run(app=build_app(), host="0.0.0.0", port=8001, timeout_graceful_shutdown=5)

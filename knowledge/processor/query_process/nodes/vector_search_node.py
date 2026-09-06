@@ -22,12 +22,16 @@ class VectorSearchNode(BaseNode):
         embedding_model = get_bge_m3_embedding_model()
         milvus_client = get_milvus_client()
         if embedding_model is None or milvus_client is None:
-            return state
+            # 并行分支节点：失败/空结果必须返回增量更新，
+            # 返回整个 state 会与其他并行节点并发写 session_id，触发 InvalidUpdateError
+            return {}
 
         # 3. 对问题向量化(稀疏向量做了字典的处理) 注意：【generate_hybrid_embeddings】
         embedding_result = generate_hybrid_embeddings(embedding_model, embedding_documents=[validated_query])
         if not embedding_result:
-            return state
+            # 并行分支节点：失败/空结果必须返回增量更新，
+            # 返回整个 state 会与其他并行节点并发写 session_id，触发 InvalidUpdateError
+            return {}
 
         # 4. 构建过滤表达式
         item_name_filter_expr = self._item_name_filter(validate_item_names)
@@ -49,7 +53,9 @@ class VectorSearchNode(BaseNode):
             output_fields=["chunk_id", "content", "item_name"]
         )
         if not reps or not reps[0]:
-            return state
+            # 并行分支节点：失败/空结果必须返回增量更新，
+            # 返回整个 state 会与其他并行节点并发写 session_id，触发 InvalidUpdateError
+            return {}
 
         # 5. 更新state的embedding_chunks
         return {"embedding_chunks": reps[0]}

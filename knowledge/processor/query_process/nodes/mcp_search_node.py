@@ -32,7 +32,8 @@ class McpSearchNode(BaseNode):
         mcp_result = asyncio.run(self._create_execute_web_search(validated_rewritten_query))
 
         if not mcp_result:
-            return state
+            # 并行分支节点：失败/空结果必须返回增量更新（见 vector_search_node 说明）
+            return {}
 
         # 3. 更新state web_search_docs
 

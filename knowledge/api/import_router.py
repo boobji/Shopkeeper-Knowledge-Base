@@ -1,10 +1,11 @@
 import os.path
 
 import uvicorn
-from fastapi import FastAPI, File, UploadFile, Depends, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, Depends
 from fastapi.responses import FileResponse
 
 from knowledge.core.app_factory import create_app
+from knowledge.core.background import run_in_daemon_thread
 from knowledge.core.paths import get_front_page_dir
 from knowledge.schema.upload_schema import UploadResponse
 from knowledge.schema.task_schema import TaskStatusResponse
@@ -32,13 +33,13 @@ def register_router(app: FastAPI):
 
     # 2. 上传请求
     @app.post("/upload", response_model=UploadResponse)
-    async def upload_file_endpoint(background_tasks: BackgroundTasks, file: UploadFile = File(...),
+    async def upload_file_endpoint(file: UploadFile = File(...),
                                    service: ImportFileService = Depends(get_import_file_service)):
         # 1. 上传文件（本地/minio）
         task_id, file_dir, import_file_path = service.process_upload_file(file)
 
-        # 2. 运行后台任务（跑graph的整个流程）
-        background_tasks.add_task(service.run_import_graph, task_id, file_dir, import_file_path)
+        # 2. 运行后台任务（跑graph的整个流程）；daemon 线程避免 uvicorn 关闭被长导入卡住
+        run_in_daemon_thread(service.run_import_graph, task_id, file_dir, import_file_path)
 
         # 3. 返回
         return UploadResponse(message="文件上传成功", task_id=task_id)
@@ -60,4 +61,4 @@ if __name__ == '__main__':
     uvicorn(性能高)
     """
     setup_logging()
-    uvicorn.run(app=build_app(), port=8000, host="0.0.0.0")
+    uvicorn.run(app=build_app(), port=8000, host="0.0.0.0", timeout_graceful_shutdown=5)

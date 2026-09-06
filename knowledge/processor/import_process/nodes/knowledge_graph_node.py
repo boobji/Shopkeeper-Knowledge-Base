@@ -19,66 +19,18 @@ from knowledge.utils.neo4j_util import get_neo4j_driver
 from knowledge.utils.llm_client_util import get_llm_client
 from knowledge.utils.bge_m3_embedding_util import get_bge_m3_embedding_model
 
-# ------------------------------------------
-# 常量
-# ------------------------------------------
-MAX_ENTITY_NAME_LENGTH = 15
-
-# ------------------------------------------
-# 白名单
-# ------------------------------------------
-# 实体标签白名单
-ALLOWED_ENTITY_LABELS: Set[str] = {
-    "Device", "Part", "Operation", "Step",
-    "Warning", "Condition", "Tool",
-}
-# 关系类型白名单
-ALLOWED_RELATION_TYPES: Set[str] = ({
-    "HAS_OPERATION", "HAS_PART", "HAS_STEP", "USES_TOOL",
-    "HAS_WARNING", "NEXT_STEP", "AFFECTS", "REQUIRES",
-    "MENTIONED_IN", "RELATED_TO",
-})
-DEFAULT_RELATION_TYPES = "RELATED_TO"
-
-# ------------------------------------------
-# Neo4J的Cypher语句
-# ------------------------------------------
-# Chunk标签节点创建
-CYPHER_MERGE_CHUNK = """
-    MERGE (c:Chunk {id: $chunk_id, item_name: $item_name})
-"""
-
-# Entity标签节点的创建
-CYPHER_MERGE_ENTITY_TEMPLATE = """
-    MERGE (n:Entity {{name: $name, item_name: $item_name}})
-    ON CREATE SET
-        n.source_chunk_id = $chunk_id,
-        n.description     = $description
-    ON MATCH SET
-        n.description = CASE
-            WHEN $description <> "" THEN $description
-            ELSE coalesce(n.description, "")
-        END
-    SET n:`{label}`
-"""
-# Entity关联Chunk
-CYPHER_LINK_ENTITY_TO_CHUNK = """
-    MATCH (n:Entity {name: $name, item_name: $item_name})
-    MATCH (c:Chunk  {id: $chunk_id, item_name: $item_name})
-    MERGE (n)-[:MENTIONED_IN]->(c)
-"""
-
-# Entity与Entity的关系
-CYPHER_MERGE_RELATION_TEMPLATE = """
-    MATCH (h:Entity {{name: $head, item_name: $item_name}})
-    MATCH (t:Entity {{name: $tail, item_name: $item_name}})
-    MERGE (h)-[:{rel_type}]->(t)
-"""
-
-# 清理Neo4J数据
-CYPHER_CLEAR_ITEM = """
-    MATCH (n {item_name: $item_name}) DETACH DELETE n
-"""
+# 图结构常量与 Cypher 统一来自 domain/kg_schema（导入 Writer 与查询 Reader 共用同一套定义）
+from knowledge.domain.kg_schema import (  # noqa: E402
+    ALLOWED_ENTITY_LABELS,
+    ALLOWED_RELATION_TYPES,
+    CYPHER_CLEAR_ITEM,
+    CYPHER_LINK_ENTITY_TO_CHUNK,
+    CYPHER_MERGE_CHUNK,
+    CYPHER_MERGE_ENTITY_TEMPLATE,
+    CYPHER_MERGE_RELATION_TEMPLATE,
+    DEFAULT_RELATION_TYPES,
+    MAX_ENTITY_NAME_LENGTH,
+)
 
 
 @dataclass

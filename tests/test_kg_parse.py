@@ -1,9 +1,9 @@
-"""kg_search_node 中纯解析/清洗函数的单测"""
+"""kg_query 域层中纯解析/清洗函数的单测"""
 
 
-from knowledge.processor.query_process.nodes.kg_search_node import (
-    _build_item_entity_pairs,
-    _clean_parse_llm_content,
+from knowledge.domain.kg_query import (
+    build_item_entity_pairs as _build_item_entity_pairs,
+    clean_parse_llm_content as _clean_parse_llm_content,
     _clean_seed_rows,
     _item_name_filter_expr,
     truncate_entity_name_length,

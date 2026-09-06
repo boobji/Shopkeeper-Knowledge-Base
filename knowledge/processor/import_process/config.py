@@ -24,6 +24,20 @@ class ImportConfig:
         default_factory=lambda: int(os.getenv("CHUNK_OVERLAP", "200"))
     )  # 长章节二次切分的相邻重叠字符数（0=关闭；建议为 max_content_length 的 10% 左右）
 
+    # ==================== Parent-Child 索引 ====================
+    parent_child_enabled: bool = field(
+        default_factory=lambda: os.getenv("PARENT_CHILD_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on")
+    )  # 检索子块（小块高精度）、返回父块（大块足上下文）
+    child_chunks_collection: str = field(
+        default_factory=lambda: os.getenv("CHILD_CHUNKS_COLLECTION", "kb_child_chunks")
+    )
+    child_chunk_size: int = field(
+        default_factory=lambda: int(os.getenv("CHILD_CHUNK_SIZE", "450"))
+    )
+    child_chunk_overlap: int = field(
+        default_factory=lambda: int(os.getenv("CHILD_CHUNK_OVERLAP", "80"))
+    )
+
     # ==================== Contextual Retrieval ====================
     contextual_retrieval_enabled: bool = field(
         default_factory=lambda: os.getenv("CONTEXTUAL_RETRIEVAL", "1").strip().lower() in ("1", "true", "yes", "on")

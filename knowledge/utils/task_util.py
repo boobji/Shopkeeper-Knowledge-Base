@@ -30,6 +30,7 @@ _NODE_NAME_TO_CN: Dict[str, str] = {
     "item_name_recognition_node": "主体名称识别",
     "bge_embedding_chunks_node": "向量生成",
     "import_milvus_node": "导入向量数据库",
+    "child_chunk_node": "子块切分入库",
     "knowledge_graph_node": "导入知识图谱",
     "__end__": "处理完成",
 

@@ -36,13 +36,15 @@ class TestParallelNodesReturnIncrementalUpdates:
             VectorSearchNode().process(dict(VALID_INPUTS))
 
     def test_vector_no_search_hits(self, monkeypatch):
+        import knowledge.domain.retrieval as rm
+
         monkeypatch.setattr(vector_mod, "get_bge_m3_embedding_model", lambda: object())
         monkeypatch.setattr(vector_mod, "get_milvus_client", lambda: object())
         monkeypatch.setattr(
             vector_mod, "generate_hybrid_embeddings",
             lambda model, embedding_documents: {"dense": [[0.0]], "sparse": [{1: 1.0}]},
         )
-        monkeypatch.setattr(vector_mod, "execute_hybrid_search_query", lambda **kwargs: [[]])
+        monkeypatch.setattr(rm, "execute_hybrid_search_query", lambda *args, **kwargs: [[]])
         assert VectorSearchNode().process(dict(VALID_INPUTS)) == {}
 
     def test_hyde_missing_embedding_model_raises(self, monkeypatch):
@@ -56,13 +58,15 @@ class TestParallelNodesReturnIncrementalUpdates:
             HyDeSearchNode().process(dict(VALID_INPUTS))
 
     def test_hyde_no_search_hits(self, monkeypatch):
+        import knowledge.domain.retrieval as rm
+
         monkeypatch.setattr(hyde_mod, "get_bge_m3_embedding_model", lambda: object())
         monkeypatch.setattr(hyde_mod, "get_milvus_client", lambda: object())
         monkeypatch.setattr(
             hyde_mod, "generate_hybrid_embeddings",
             lambda model, embedding_documents: {"dense": [[0.0]], "sparse": [{1: 1.0}]},
         )
-        monkeypatch.setattr(hyde_mod, "execute_hybrid_search_query", lambda *args, **kwargs: [[]])
+        monkeypatch.setattr(rm, "execute_hybrid_search_query", lambda *args, **kwargs: [[]])
         assert HyDeSearchNode().process(dict(VALID_INPUTS)) == {}
 
     def test_mcp_empty_result(self, monkeypatch):

@@ -7,9 +7,9 @@ from typing import Dict, Any, List, Tuple, Union
 from knowledge.processor.query_process.state import QueryGraphState
 from knowledge.processor.query_process.base import BaseNode
 from knowledge.processor.query_process.exceptions import StateFieldError
-from knowledge.domain.filters import build_item_name_norm_expr
+from knowledge.domain.retrieval import search_chunks
 from knowledge.utils.bge_m3_embedding_util import get_bge_m3_embedding_model, generate_hybrid_embeddings
-from knowledge.utils.milvus_util import create_hybrid_search_requests, execute_hybrid_search_query, get_milvus_client
+from knowledge.utils.milvus_util import get_milvus_client
 
 
 class VectorSearchNode(BaseNode):
@@ -30,22 +30,24 @@ class VectorSearchNode(BaseNode):
             # 返回整个 state 会与其他并行节点并发写 session_id，触发 InvalidUpdateError
             return {}
 
-        # 4. 构建过滤表达式（归一化字段，容忍空格/大小写差异）
-        item_name_filter_expr = build_item_name_norm_expr(validate_item_names)
-
-        # 5. 执行混合搜索请求；带过滤搜空时回退一次全库检索
-        #（旧数据无归一化字段、或确认名与入库名不一致时，宁可多召回交给重排，不让该路空手而归）
-        dense_vector = embedding_result['dense'][0]
-        sparse_vector = embedding_result['sparse'][0]
-        reps = self._hybrid_search(milvus_client, dense_vector, sparse_vector,
-                                   item_name_filter_expr, limit=5)
-        if not reps or not reps[0]:
+        # 4. 统一检索链路：子块(+商品过滤 → 全库) → 父块(+商品过滤 → 全库)
+        reps = search_chunks(
+            milvus_client,
+            embedding_result['dense'][0],
+            embedding_result['sparse'][0],
+            item_names=validate_item_names,
+            limit=self.config.embedding_search_limit,
+            chunks_collection=self.config.chunks_collection,
+            child_collection=self.config.child_chunks_collection if self.config.parent_child_enabled else None,
+            logger_=self.logger,
+        )
+        if not reps:
             # 并行分支节点：失败/空结果必须返回增量更新，
             # 返回整个 state 会与其他并行节点并发写 session_id，触发 InvalidUpdateError
             return {}
 
-        # 6. 更新state的embedding_chunks
-        return {"embedding_chunks": reps[0]}
+        # 5. 更新state的embedding_chunks
+        return {"embedding_chunks": reps}
 
     def _validate_query_inputs(self, state: QueryGraphState) -> Tuple[str, List[str]]:
 
@@ -64,28 +66,3 @@ class VectorSearchNode(BaseNode):
 
         # 4. 返回
         return rewritten_query, item_names
-
-    def _hybrid_search(self, milvus_client, dense_vector, sparse_vector,
-                       item_name_filter_expr: str, limit: int):
-        """执行混合检索；带过滤空结果时回退一次不带过滤的检索（表达式需要重建请求）。"""
-        def _search(expr: str):
-            reqs = create_hybrid_search_requests(
-                dense_vector=dense_vector,
-                sparse_vector=sparse_vector,
-                expr=expr or None,
-                limit=limit,
-            )
-            return execute_hybrid_search_query(
-                milvus_client=milvus_client,
-                collection_name=self.config.chunks_collection,
-                search_requests=reqs,
-                norm_score=True,
-                limit=limit,
-                output_fields=["chunk_id", "content", "item_name"],
-            )
-
-        reps = _search(item_name_filter_expr)
-        if (not reps or not reps[0]) and item_name_filter_expr:
-            self.logger.warning("带商品名过滤检索为空，回退全库检索")
-            reps = _search("")
-        return reps

@@ -49,6 +49,7 @@ _SCALAR_FIELDS: Sequence[ScalarFieldSpec] = (
     ScalarFieldSpec(field_name="file_title", datatype=DataType.VARCHAR, max_length=65535),
     ScalarFieldSpec(field_name="item_name", datatype=DataType.VARCHAR, max_length=65535), # 标量字段的过滤检索【注意】
     ScalarFieldSpec(field_name="item_name_norm", datatype=DataType.VARCHAR, max_length=65535), # 归一化商品名（去空白+小写），检索过滤一律走该字段
+    ScalarFieldSpec(field_name="chunk_uid", datatype=DataType.VARCHAR, max_length=64), # 父块稳定标识：子块命中后反查父块用
 )
 
 class _MilvusSchemaBuilder:

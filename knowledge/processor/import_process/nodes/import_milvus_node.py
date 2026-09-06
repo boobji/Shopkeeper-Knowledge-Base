@@ -11,6 +11,7 @@ from knowledge.processor.import_process.base import BaseNode, setup_logging
 from knowledge.processor.import_process.state import ImportGraphState
 from knowledge.processor.import_process.exceptions import ValidationError
 from knowledge.processor.import_process.config import get_config
+from knowledge.domain.filters import normalize_item_name
 from knowledge.utils.milvus_util import get_milvus_client
 
 """
@@ -47,6 +48,7 @@ _SCALAR_FIELDS: Sequence[ScalarFieldSpec] = (
     ScalarFieldSpec(field_name="parent_title", datatype=DataType.VARCHAR, max_length=65535),
     ScalarFieldSpec(field_name="file_title", datatype=DataType.VARCHAR, max_length=65535),
     ScalarFieldSpec(field_name="item_name", datatype=DataType.VARCHAR, max_length=65535), # 标量字段的过滤检索【注意】
+    ScalarFieldSpec(field_name="item_name_norm", datatype=DataType.VARCHAR, max_length=65535), # 归一化商品名（去空白+小写），检索过滤一律走该字段
 )
 
 class _MilvusSchemaBuilder:
@@ -164,23 +166,21 @@ class ImportMilvusNode(BaseNode):
         # 2. 获取milvus客户端
         milvus_client = get_milvus_client()
 
-        # 3. 判断milvus客户端
-        if milvus_client is None:
-            return state
-
         # 4. 获取集合名字
         collection = getattr(config, 'chunks_collection')
 
+        # 5. 确保集合存在（集合保留不 drop，支持多文档累积；旧数据无新增字段也能靠动态字段兼容）
+        self._ensure_has_collection(milvus_client, collection, dim, delete_flag=False)
 
-        # 5.确保集合存在（判断集合是否有、没有 创建新的【schema index】）
-        self._ensure_has_collection(milvus_client, collection, dim)
+        # 6. 按 item_name 增量替换：重导同一文档先删旧切片，多文档之间互不影响
+        self._delete_existing_items(milvus_client, collection, validated_chunks)
 
-        # 6. 插入
+        # 7. 插入
         inserter = _MilvusInserter(client=milvus_client, collection_name=collection)
 
         final_chunks = inserter.insert(chunks=validated_chunks)
 
-        # 7. 更新state
+        # 8. 更新state
         state['chunks'] = final_chunks
 
         return state
@@ -197,11 +197,14 @@ class ImportMilvusNode(BaseNode):
         if not chunks:
             raise ValidationError("待入库的切块chunk不存在", self.name)
 
-        # 3. 校验是否有混合向量
+        # 3. 校验是否有混合向量，并补齐归一化商品名
         validated_chunks = []
         for chunk in chunks:
 
             if chunk.get('dense_vector') and chunk.get('sparse_vector'):
+                # 归一化商品名：检索过滤的匹配基准（历史数据可能没有该字段，此处统一补齐）
+                if not chunk.get('item_name_norm'):
+                    chunk['item_name_norm'] = normalize_item_name(chunk.get('item_name', ''))
                 validated_chunks.append(chunk)
             else:
                 self.logger.error("待入库的切块chunk的混合向量不存在")
@@ -215,6 +218,17 @@ class ImportMilvusNode(BaseNode):
         self.logger.info(f"导入Milvus向量数据库的有效块：{len(validated_chunks)},且chunk的向量维度{dim}")
 
         return validated_chunks, dim, config
+
+    def _delete_existing_items(self, milvus_client: MilvusClient, collection_name: str,
+                               chunks: List[Dict[str, Any]]):
+        """按 item_name 删除旧切片：同一商品重导 = 替换，不同商品互不影响。"""
+        item_names = sorted({c.get("item_name") for c in chunks if c.get("item_name")})
+        for name in item_names:
+            try:
+                res = milvus_client.delete(collection_name=collection_name, filter=f'item_name == "{name}"')
+                self.logger.info(f"已清理商品 '{name}' 的旧切片: {res}")
+            except Exception as e:
+                self.logger.warning(f"清理商品 '{name}' 旧切片失败（继续导入）: {e}")
 
     def _ensure_has_collection(self, milvus_client: MilvusClient, collection_name: str, dim: int,
                                delete_flag: bool = True):

@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Union
 from pymilvus import MilvusClient
 from langchain_core.messages import SystemMessage, HumanMessage
 
+from knowledge.domain.filters import build_item_name_norm_expr
 from knowledge.domain.llm_parse import strip_json_fence
 from knowledge.domain.kg_schema import (
     CYPHER_EXACT_SEEDS,
@@ -117,8 +118,8 @@ def truncate_entity_name_length(entity_name: str) -> str:
 
 
 def _item_name_filter_expr(item_names: List[str]) -> str:
-    quoted = ", ".join(f"'{item_name}'" for item_name in item_names)
-    return f"item_name in [{quoted}]"
+    # 归一化字段过滤：容忍确认名与入库名的空格/大小写差异
+    return build_item_name_norm_expr(item_names)
 
 
 def _clean_seed_rows(rows: List[Dict[str, Any]]) -> List[EntitySeedNode]:
@@ -331,19 +332,24 @@ class EntityAligner:
         if not dense_vector or not sparse_vector:
             return [{"original": entity_name, "aligned": "", "context": "", "reason": "vector values is not exist "}]
 
-        # 2. 创建混合搜索请求
-        hybrid_search_requests = create_hybrid_search_requests(dense_vector=dense_vector,
-                                                               sparse_vector=sparse_vector,
-                                                               expr=item_name_filtered_expr, limit=5)
-        # 3. 执行混合搜索请求
-        reps = execute_hybrid_search_query(milvus_client=milvus_client,
-                                           collection_name=_collection_name,
-                                           search_requests=hybrid_search_requests,
-                                           ranker_weights=(0.4, 0.6),
-                                           norm_score=True,
-                                           limit=5,
-                                           output_fields=["source_chunk_id", "item_name", "context", "entity_name"],
-                                           )
+        # 2/3. 创建并执行混合搜索请求；带过滤搜空时回退一次全库检索
+        def _search(expr: str):
+            reqs = create_hybrid_search_requests(dense_vector=dense_vector,
+                                                 sparse_vector=sparse_vector,
+                                                 expr=expr or None, limit=5)
+            return execute_hybrid_search_query(milvus_client=milvus_client,
+                                               collection_name=_collection_name,
+                                               search_requests=reqs,
+                                               ranker_weights=(0.4, 0.6),
+                                               norm_score=True,
+                                               limit=5,
+                                               output_fields=["source_chunk_id", "item_name", "context", "entity_name"],
+                                               )
+
+        reps = _search(item_name_filtered_expr)
+        if (not reps or not reps[0]) and item_name_filtered_expr:
+            self._logger.warning("实体对齐带过滤检索为空，回退全库检索")
+            reps = _search("")
 
         # 4. 解析结果
         hits = reps[0] if reps else []

@@ -17,6 +17,7 @@ from typing import Any, Dict, List
 from pymilvus import MilvusClient, DataType
 
 from knowledge.core.exceptions import MilvusError, Neo4jError
+from knowledge.domain.filters import normalize_item_name
 from knowledge.domain.kg_schema import (
     CYPHER_CLEAR_ITEM,
     CYPHER_LINK_ENTITY_TO_CHUNK,
@@ -201,6 +202,7 @@ class MilvusEntityWriter:
         schema.add_field("source_chunk_id", DataType.VARCHAR, max_length=65535)
         schema.add_field("context", DataType.VARCHAR, max_length=65535)
         schema.add_field("item_name", DataType.VARCHAR, max_length=65535)
+        schema.add_field("item_name_norm", DataType.VARCHAR, max_length=65535)
 
         # 3. 构建索引
         index_params = client.prepare_index_params()
@@ -272,6 +274,7 @@ class MilvusEntityWriter:
                 "entity_name": entity_name,
                 "context": context,
                 "item_name": item_name,
+                "item_name_norm": normalize_item_name(item_name),
                 "source_chunk_id": chunk_id,
                 "dense_vector": dense,
                 "sparse_vector": sparse_dict,

@@ -73,10 +73,15 @@ class TestParallelNodesReturnIncrementalUpdates:
         assert McpSearchNode().process(dict(VALID_INPUTS)) == {}
 
     def test_state_key_not_written_on_failure(self, monkeypatch):
-        """返回 {} 时不得携带 session_id 等任何键（并发写会炸图）。"""
-        monkeypatch.setattr(vector_mod, "get_bge_m3_embedding_model", lambda: None)
-        result = VectorSearchNode().process({**VALID_INPUTS, "session_id": "s-1", "task_id": "t-1"})
-        assert "session_id" not in result
+        """失败路径的返回不得携带 session_id 等任何键（并发写会炸图）。"""
+        from knowledge.core.exceptions import EmbeddingError
+
+        def raise_emb(*args, **kwargs):
+            raise EmbeddingError("BGE-M3 加载失败")
+
+        monkeypatch.setattr(vector_mod, "get_bge_m3_embedding_model", raise_emb)
+        with pytest.raises(EmbeddingError):
+            VectorSearchNode().process({**VALID_INPUTS, "session_id": "s-1", "task_id": "t-1"})
 
 
 class TestQueryServiceErrorEvent:

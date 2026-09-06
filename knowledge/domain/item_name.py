@@ -46,6 +46,10 @@ class ItemNameAligner:
         self._collection_name = collection_name
 
     def match_align_filter(self, item_names: List[str]) -> Tuple[List[str], List[str]]:
+        # 0. 空输入短路，不打向量库
+        if not item_names:
+            return [], []
+
         # 1. 查询向量数据库
         search_result: List[Dict[str, Any]] = self._match_vector(item_names)
 

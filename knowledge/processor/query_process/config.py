@@ -7,9 +7,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 import os
 
-from dotenv import load_dotenv
-
-load_dotenv(override=True)
+# 环境变量由 knowledge/__init__.py → core.config.load_env() 统一加载，此处直接读取
 
 
 @dataclass

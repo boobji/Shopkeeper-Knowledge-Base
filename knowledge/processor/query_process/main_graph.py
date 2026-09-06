@@ -5,7 +5,6 @@
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph.state import CompiledStateGraph
-from dotenv import load_dotenv
 from knowledge.processor.query_process.state import QueryGraphState
 
 from knowledge.processor.query_process.nodes.answer_output_node import AnswerOutputNode
@@ -16,9 +15,6 @@ from knowledge.processor.query_process.nodes.mcp_search_node import McpSearchNod
 from knowledge.processor.query_process.nodes.kg_search_node import KnowledgeGraphSearchNode
 from knowledge.processor.query_process.nodes.rrf_node import RrfNode
 from knowledge.processor.query_process.nodes.rerank_node import RerankNode
-
-# 加载环境变量
-load_dotenv()
 
 
 def route_after_item_confirm(state: QueryGraphState) -> bool:

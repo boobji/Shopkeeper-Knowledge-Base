@@ -1,6 +1,3 @@
-from dotenv import load_dotenv
-
-load_dotenv()
 import os.path
 import uuid
 from datetime import datetime

@@ -1,26 +1,16 @@
 """
 导入流程自定义异常类
 
-统一错误处理，提供更清晰的错误信息
+统一错误处理，提供更清晰的错误信息。
+异常基类与消息格式在 core.exceptions.ProcessError 中统一定义。
 """
 
+from knowledge.core.exceptions import ProcessError
 
-class ImportProcessError(Exception):
+
+class ImportProcessError(ProcessError):
     """导入流程基础异常"""
-
-    def __init__(self, message: str, node_name: str = "", cause: Exception = None):
-        self.node_name = node_name
-        self.cause = cause
-        super().__init__(message)
-
-    def __str__(self):
-        parts = []
-        if self.node_name:
-            parts.append(f"[{self.node_name}]")
-        parts.append(super().__str__())
-        if self.cause:
-            parts.append(f"(原因: {self.cause})")
-        return " ".join(parts)
+    pass
 
 
 class ConfigurationError(ImportProcessError):

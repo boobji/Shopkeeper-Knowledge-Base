@@ -1,48 +1,19 @@
-import os
+"""Milvus 客户端与混合检索工具函数。
+
+客户端单例由 core.connections 统一管理（线程安全）。
+"""
+
 import logging
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
-from dotenv import load_dotenv
-
-load_dotenv()
-
-from typing import Optional
 from pymilvus import MilvusClient, WeightedRanker, AnnSearchRequest
-milvus_client: Optional[MilvusClient] = None
 
+from knowledge.core.connections import get_milvus_client  # noqa: F401 重新导出，保持调用方导入路径不变
 
-def get_milvus_client() -> Optional[MilvusClient]:
-    global milvus_client
-
-    # 1.判断
-    if milvus_client is not None:
-        return milvus_client
-
-    # 2. 获取参数
-    try:
-        milvus_uri = os.getenv('MILVUS_URL', 'http://127.0.0.1:19530')
-
-        # 3. 定义MilVusClient对象
-        milvus_client = MilvusClient(
-            uri=milvus_uri
-        )
-
-        return milvus_client
-    except Exception as e:
-        logger.error(f"MilVus客户端创建失败:{str(e)}")
-        return None
-
+logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------
 # 混合检索
-# ------------------------------------------------------------------
-
-
-# ------------------------------------------------------------------
-# 创建混合检索请求
 # ------------------------------------------------------------------
 def create_hybrid_search_requests(dense_vector,
                                   sparse_vector,
@@ -51,7 +22,7 @@ def create_hybrid_search_requests(dense_vector,
                                   expr=None,
                                   limit=5):
     """
-    创建混合搜索请求
+    创建混合检索请求
 
     :param dense_vector: 稠密向量
     :param sparse_vector: 稀疏向量
@@ -88,9 +59,6 @@ def create_hybrid_search_requests(dense_vector,
     return [dense_req, sparse_req]
 
 
-# ------------------------------------------------------------------
-# 执行混合检索请求
-# ------------------------------------------------------------------
 def execute_hybrid_search_query(milvus_client: MilvusClient,
                                 collection_name,
                                 search_requests,
@@ -104,7 +72,7 @@ def execute_hybrid_search_query(milvus_client: MilvusClient,
     :param collection_name: 集合名称
     :param search_requests: 搜索请求列表，通常是[dense_req, sparse_req]
     :param ranker_weights: 权重排名器的权重，默认为(0.5, 0.5)
-    :param norm_score: 是否对分数进行归一化，默认为True
+    :param norm_score: 是否对分数进行归一化，默认为False
     :param limit: 返回结果数量限制，默认为5
     :param output_fields: 要返回的字段列表，默认为None
     :param search_params: 搜索参数，默认为None
@@ -137,9 +105,6 @@ def execute_hybrid_search_query(milvus_client: MilvusClient,
         return None
 
 
-
-
-
 def fetch_chunks_by_chunk_ids(
     collection_name: str,
     chunk_ids,
@@ -158,17 +123,15 @@ def fetch_chunks_by_chunk_ids(
         # 默认返回字段需与 collection schema 保持一致
         output_fields = ["chunk_id", "content", "title", "file_title", "item_name"]
 
-
     results = []
     # 分批，避免一次性过大
     for i in range(0, len(chunk_ids), batch_size):
-        batch = chunk_ids[i : i + batch_size]
-        #  get（主键直取）
+        batch = chunk_ids[i: i + batch_size]
+        # get（主键直取）
         try:
             got = client.get(collection_name=collection_name, ids=batch, output_fields=output_fields)
             if got:
                 results.extend(got)
-            continue
         except Exception as e:
             logger.error(f"Milvus get() 查询失败: {e}")
 

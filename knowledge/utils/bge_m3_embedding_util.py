@@ -2,19 +2,24 @@ from pymilvus.model.hybrid import BGEM3EmbeddingFunction
 from typing import Optional, List
 import os
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-from pathlib import Path
-from dotenv import load_dotenv
-
-_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(dotenv_path=_ENV_FILE, override=True)
 bge_m3_ef: Optional[BGEM3EmbeddingFunction] = None
+_bge_m3_lock = threading.Lock()
 
 
 def get_bge_m3_embedding_model():
+    global bge_m3_ef
+    if bge_m3_ef is not None:
+        return bge_m3_ef
+    with _bge_m3_lock:
+        return _load_bge_m3()
+
+
+def _load_bge_m3():
     global bge_m3_ef
     if bge_m3_ef is not None:
         return bge_m3_ef

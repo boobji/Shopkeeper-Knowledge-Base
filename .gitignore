@@ -44,3 +44,5 @@ model_cache/
 
 # ---------- 环境变量模板需要保留 ----------
 !.env.example
+# ZCode 本地会话配置
+.zcode/

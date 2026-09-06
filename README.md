@@ -256,22 +256,53 @@ Shopkeeper_Knowledge_Base/
 │   ├── api/                          # FastAPI 路由层
 │   │   ├── import_router.py          #   文档导入服务 (:8000)
 │   │   └── query_router.py           #   智能问答服务 (:8001)
-│   ├── core/                         # 依赖注入、路径配置
+│   ├── core/                         # 基础设施层
+│   │   ├── config.py                 #   .env 唯一加载入口（load_env）
+│   │   ├── connections.py            #   Milvus/Neo4j/Mongo/MinIO 线程安全单例
+│   │   ├── app_factory.py            #   FastAPI 应用工厂（CORS/静态资源/启动自检）
+│   │   ├── exceptions.py             #   流程异常统一基类
+│   │   ├── logging.py                #   统一日志配置
+│   │   ├── deps.py                   #   依赖注入
+│   │   └── paths.py                  #   路径配置
+│   ├── domain/                       # 领域层（导入/查询共用）
+│   │   ├── kg_schema.py              #   图结构单一事实来源：白名单/Cypher/常量
+│   │   └── kg_query.py               #   查询侧 KG 组件（实体抽取/对齐/图读取/chunk回填）
 │   ├── schema/                       # Pydantic 数据模型
 │   ├── services/                     # 业务逻辑层
 │   ├── prompts/                      # Prompt 模板
 │   ├── front/                        # 前端页面
 │   ├── processor/
+│   │   ├── base.py                   # 共享节点基类（日志/任务追踪/SSE进度/异常包装）
 │   │   ├── import_process/           # 导入流程 (LangGraph)
 │   │   │   └── nodes/                #   PDF解析/图片/切片/商品名/向量化/入库/图谱
 │   │   └── query_process/            # 查询流程 (LangGraph)
 │   │       └── nodes/                #   商品名确认/向量/HyDE/图谱/MCP/RRF/重排/输出
 │   └── utils/                        # 工具层：Milvus/Neo4j/Mongo/MinIO/SSE/Embedding
-├── docs/                             # 项目文档
-├── requirements.txt
+├── eval/                             # 检索效果评测（Recall@K / MRR / nDCG）
+├── tests/                            # 单元测试（纯函数逻辑，不依赖外部服务）
+├── requirements.txt                  # 运行依赖（已钉版本）
+├── requirements-dev.txt              # 开发依赖（pytest / ruff）
+├── pyproject.toml                    # pytest / ruff / mypy 配置
 ├── .env.example                      # 配置模板
 └── README.md
 ```
+
+---
+
+## 🧑‍💻 开发
+
+```bash
+pip install -r requirements-dev.txt
+
+python -m pytest -q                # 单元测试（纯函数逻辑，秒级）
+python -m ruff check .             # Lint
+python eval/run_eval.py --self-test
+```
+
+约束：
+- **配置加载**只允许经 `knowledge/core/config.py` 的 `load_env()`（`knowledge/__init__.py` 已自动触发），业务模块禁止再调 `load_dotenv`。
+- **外部连接**（Milvus/Neo4j/Mongo/MinIO）统一经 `knowledge/core/connections.py` 获取，线程安全、懒加载。
+- **图结构**（实体/关系白名单、Cypher 语句）统一维护在 `knowledge/domain/kg_schema.py`，导入写入与查询读取共用同一套定义。
 
 ---
 

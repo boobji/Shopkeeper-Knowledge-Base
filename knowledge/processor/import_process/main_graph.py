@@ -9,6 +9,7 @@ from knowledge.processor.import_process.nodes.item_name_recognition_node import 
 from knowledge.processor.import_process.nodes.bge_embedding_chunks_node import BgeEmbeddingChunksNode
 from knowledge.processor.import_process.nodes.import_milvus_node import ImportMilvusNode
 from knowledge.processor.import_process.nodes.knowledge_graph_node import KnowledgeGraphNode
+from knowledge.processor.import_process.nodes.child_chunk_node import ChildChunkNode
 
 
 def import_router(state: ImportGraphState):
@@ -42,6 +43,7 @@ def create_import_graph() -> StateGraph:
         'item_name_recognition_node': ItemNameRecognitionNode(),
         'bge_emdedding_node': BgeEmbeddingChunksNode(),
         'import_milvus_node': ImportMilvusNode(),
+        'child_chunk_node': ChildChunkNode(),
         'knowledge_graph_node': KnowledgeGraphNode(),
     }
     for key, value in nodes.items():
@@ -64,7 +66,8 @@ def create_import_graph() -> StateGraph:
     graph_pipeline.add_edge('document_split_node', 'item_name_recognition_node')
     graph_pipeline.add_edge('item_name_recognition_node', 'bge_emdedding_node')
     graph_pipeline.add_edge('bge_emdedding_node', 'import_milvus_node')
-    graph_pipeline.add_edge('import_milvus_node', 'knowledge_graph_node')
+    graph_pipeline.add_edge('import_milvus_node', 'child_chunk_node')
+    graph_pipeline.add_edge('child_chunk_node', 'knowledge_graph_node')
     graph_pipeline.add_edge('knowledge_graph_node', END)
 
     # 4.编译(编排)

@@ -1,6 +1,7 @@
 from typing import Dict, List, Any
 from knowledge.processor.import_process.base import BaseNode
 from knowledge.processor.import_process.state import ImportGraphState
+from knowledge.domain.contextual import enrich_chunks_with_context
 from knowledge.processor.import_process.exceptions import ValidationError
 from knowledge.processor.import_process.config import get_config
 from knowledge.utils.bge_m3_embedding_util import get_bge_m3_embedding_model
@@ -23,6 +24,11 @@ class BgeEmbeddingChunksNode(BaseNode):
 
         # 2. 获取批量嵌入的阈值
         embedding_batch_chunk_size = getattr(config, 'embedding_batch_size', 16)
+
+        # 2.5 Contextual Retrieval：为每个 chunk 生成上下文前缀（失败退化为无前缀）
+        if config.contextual_retrieval_enabled:
+            self.log_step("step1.5", "生成上下文前缀（contextual retrieval）")
+            enrich_chunks_with_context(validated_chunks, config)
 
         # 3. 准备分批嵌入(pineline)
         # 待嵌入的所有数据chunks=[1,2,3,4,5,6]
@@ -56,8 +62,13 @@ class BgeEmbeddingChunksNode(BaseNode):
             content = chunk.get('content')
             # 1.2 提取item_name
             item_name = chunk.get('item_name')
-            # 1.3 拼接要嵌入的最终内容
-            embedding_content = f"{item_name}\n{content}"
+            # 1.3 提取上下文前缀（contextual retrieval，可能为空）
+            context_prefix = chunk.get('context_prefix') or ''
+            # 1.4 拼接要嵌入的最终内容
+            if context_prefix:
+                embedding_content = context_prefix + '\n' + item_name + '\n' + content
+            else:
+                embedding_content = item_name + '\n' + content
             embedding_contents.append(embedding_content)
 
         # 2. 批量嵌入

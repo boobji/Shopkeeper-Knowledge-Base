@@ -9,9 +9,10 @@ from knowledge.processor.query_process.state import QueryGraphState
 from knowledge.processor.query_process.base import BaseNode
 from knowledge.processor.query_process.exceptions import StateFieldError
 
+from knowledge.domain.retrieval import search_chunks
 from knowledge.utils.llm_client_util import get_llm_client
 from knowledge.prompts.query.query_prompt import USER_HYDE_PROMPT_TEMPLATE
-from knowledge.utils.milvus_util import get_milvus_client, create_hybrid_search_requests, execute_hybrid_search_query
+from knowledge.utils.milvus_util import get_milvus_client
 from knowledge.utils.bge_m3_embedding_util import generate_hybrid_embeddings, get_bge_m3_embedding_model
 
 
@@ -38,27 +39,24 @@ class HyDeSearchNode(BaseNode):
             # 并行分支节点：失败/空结果必须返回增量更新（见 vector_search_node 说明）
             return {}
 
-        # 5. 获取item_name的过滤表达式
-        item_name_filtered_expr = self._item_name_filte_expr(validate_item_names)
+        # 5. 统一检索链路：子块(+商品过滤 → 全库) → 父块(+商品过滤 → 全库)
+        reps = search_chunks(
+            milvus_client,
+            embedding_result['dense'][0],
+            embedding_result['sparse'][0],
+            item_names=validate_item_names,
+            limit=self.config.hyde_search_limit,
+            chunks_collection=self.config.chunks_collection,
+            child_collection=self.config.child_chunks_collection if self.config.parent_child_enabled else None,
+            logger_=self.logger,
+        )
 
-        # 6. 创建混合搜索请求
-        hybrid_search_requests = create_hybrid_search_requests(dense_vector=embedding_result['dense'][0],
-                                                               sparse_vector=embedding_result['sparse'][0],
-                                                               expr=item_name_filtered_expr)
-
-        # 7. 执行混合搜索请求
-        reps = execute_hybrid_search_query(milvus_client,
-                                           collection_name=self.config.chunks_collection,
-                                           search_requests=hybrid_search_requests,
-                                           norm_score=True,
-                                           output_fields=["chunk_id", "content", "item_name"])
-
-        if not reps or not reps[0]:
+        if not reps:
             # 并行分支节点：失败/空结果必须返回增量更新（见 vector_search_node 说明）
             return {}
 
-        # 8. 只更新hyde_embedding_chunks
-        return {"hyde_embedding_chunks": reps[0]}
+        # 6. 只更新hyde_embedding_chunks
+        return {"hyde_embedding_chunks": reps}
 
     def _validate_query_inputs(self, state: QueryGraphState) -> Tuple[str, List[str]]:
 
@@ -105,9 +103,3 @@ class HyDeSearchNode(BaseNode):
             self.logger.error(f"LLM调用失败:{str(e)}")
             return ""
 
-    def _item_name_filte_expr(self, validate_item_names: List[str]) -> str:
-        # filter = 'item_name in '"商品A", "商品B"'
-        #  '"商品A", "商品B"'
-        quoted = ", ".join(f'"{v}"' for v in validate_item_names)
-        # filter = 'item_name in ["商品A", "商品B", "商品C"]'v   # 标量字段（动态字段）进行过滤
-        return f" item_name in [{quoted}]"

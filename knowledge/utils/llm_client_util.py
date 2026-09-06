@@ -12,7 +12,8 @@ logging.basicConfig(level=logging.INFO)
 # 环境变量由 knowledge/__init__.py → core.config.load_env() 统一加载
 cache_llm_client = {}
 _cache_lock = threading.Lock()
-def get_llm_client(model_name: str = None, temperature: float = 0.0, response_format: bool = False) -> ChatOpenAI:
+def get_llm_client(model_name: str = None, temperature: float = 0.0, response_format: bool = False,
+                   timeout: float = None) -> ChatOpenAI:
     """
     返回 LLM 客户端对象（带缓存）。
     缓存 key 为 (model_name, temperature, response_format)，三者任一不同都对应独立实例。
@@ -24,7 +25,7 @@ def get_llm_client(model_name: str = None, temperature: float = 0.0, response_fo
     base_url=os.getenv("OPENAI_API_BASE")
 
     # 缓存命中直接返回（temperature 必须参与 key，否则不同温度会复用同一实例）
-    cache_key = (model_name, temperature, response_format)  # 复合缓存key
+    cache_key = (model_name, temperature, response_format, timeout)  # 复合缓存key
     with _cache_lock:
         if cache_key in cache_llm_client:
             return cache_llm_client[cache_key]
@@ -42,6 +43,7 @@ def get_llm_client(model_name: str = None, temperature: float = 0.0, response_fo
             api_key=api_key,
             base_url=base_url,
             temperature=temperature,
+            timeout=timeout,
             extra_body={"enable_thinking": False},
             model_kwargs=model_kwargs,
         )

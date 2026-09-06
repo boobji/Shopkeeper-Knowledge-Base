@@ -2,174 +2,281 @@
   "_meta": {
     "name": "掌柜智库 · 检索效果评测集 v1",
     "description": "基于《万用表RS-12的使用》真实切片（21 个 chunk）人工标注。每条用例给出问题与期望命中的 chunk 标题（存储在 Milvus title 字段，跨重导入稳定，不依赖 chunk_id）。用 python eval/run_eval.py 运行。",
-    "item_name": "RS-PRO RS-12 数字万用表",
+    "item_name": "RS-12 数字万用表",
     "grounding_doc": "knowledge/processor/import_process/import_temp_dir/万用表RS-12的使用/auto/chunks_item.json",
-    "categories": ["直接问法", "口语化", "同义改写", "安全警告", "细节长尾"],
+    "categories": [
+      "直接问法",
+      "口语化",
+      "同义改写",
+      "安全警告",
+      "细节长尾"
+    ],
     "note_on_negative": "negative=true 的用例为负例：问题与文档完全无关，期望检索结果中不出现大量误导性内容，需人工复核，不计入 Recall/MRR 自动指标。"
   },
   "cases": [
     {
-      "id": "D01", "category": "直接问法",
+      "id": "D01",
+      "category": "直接问法",
       "question": "怎么测量电阻？",
-      "expected_titles": ["## 电阻测量"]
+      "expected_titles": [
+        "## 电阻测量"
+      ]
     },
     {
-      "id": "D02", "category": "直接问法",
+      "id": "D02",
+      "category": "直接问法",
       "question": "如何更换电池？",
-      "expected_titles": ["## 更换电池"]
+      "expected_titles": [
+        "## 更换电池"
+      ]
     },
     {
-      "id": "D03", "category": "直接问法",
+      "id": "D03",
+      "category": "直接问法",
       "question": "怎么更换保险丝？",
-      "expected_titles": ["## 更换保险丝"]
+      "expected_titles": [
+        "## 更换保险丝"
+      ]
     },
     {
-      "id": "D04", "category": "直接问法",
+      "id": "D04",
+      "category": "直接问法",
       "question": "怎么测量直流电压？",
-      "expected_titles": ["## 直流电压测量"]
+      "expected_titles": [
+        "## 直流电压测量"
+      ]
     },
     {
-      "id": "D05", "category": "直接问法",
+      "id": "D05",
+      "category": "直接问法",
       "question": "怎么测量交流电压？",
-      "expected_titles": ["## 交流电压测量"]
+      "expected_titles": [
+        "## 交流电压测量"
+      ]
     },
     {
-      "id": "D06", "category": "直接问法",
+      "id": "D06",
+      "category": "直接问法",
       "question": "如何安装电池？",
-      "expected_titles": ["## 电池安装"]
+      "expected_titles": [
+        "## 电池安装"
+      ]
     },
     {
-      "id": "D07", "category": "直接问法",
+      "id": "D07",
+      "category": "直接问法",
       "question": "怎么测试二极管的好坏？",
-      "expected_titles": ["## 二极管测试"]
+      "expected_titles": [
+        "## 二极管测试"
+      ]
     },
     {
-      "id": "C01", "category": "口语化",
+      "id": "C01",
+      "category": "口语化",
       "question": "屏幕上显示BAT是什么意思，是不是没电了？",
-      "expected_titles": ["## 更换电池"]
+      "expected_titles": [
+        "## 更换电池"
+      ]
     },
     {
-      "id": "C02", "category": "口语化",
+      "id": "C02",
+      "category": "口语化",
       "question": "屏幕看不清楚，怎么打开背光？",
-      "expected_titles": ["## 背光灯键（BACKLIGHT）"]
+      "expected_titles": [
+        "## 背光灯键（BACKLIGHT）"
+      ]
     },
     {
-      "id": "C03", "category": "口语化",
+      "id": "C03",
+      "category": "口语化",
       "question": "测完一个数想固定下来慢慢看，不想一直盯着屏幕，怎么办？",
-      "expected_titles": ["## 数值保持按键HOLD"]
+      "expected_titles": [
+        "## 数值保持按键HOLD"
+      ]
     },
     {
-      "id": "C04", "category": "口语化",
+      "id": "C04",
+      "category": "口语化",
       "question": "想确认墙里电线有没有电，但又不想把表笔碰上去，有这种功能吗？",
-      "expected_titles": ["## 测量非接触交流电压"]
+      "expected_titles": [
+        "## 测量非接触交流电压"
+      ]
     },
     {
-      "id": "C05", "category": "口语化",
+      "id": "C05",
+      "category": "口语化",
       "question": "新买的9V电池还有多少电，能用这个表测吗？",
-      "expected_titles": ["## 电池测试"]
+      "expected_titles": [
+        "## 电池测试"
+      ]
     },
     {
-      "id": "C06", "category": "口语化",
+      "id": "C06",
+      "category": "口语化",
       "question": "保险丝好像烧了，怎么换一个新的？",
-      "expected_titles": ["## 更换保险丝"]
+      "expected_titles": [
+        "## 更换保险丝"
+      ]
     },
     {
-      "id": "S01", "category": "同义改写",
+      "id": "S01",
+      "category": "同义改写",
       "question": "用蜂鸣档怎么测线路短路？",
-      "expected_titles": ["## 短路蜂鸣测试"]
+      "expected_titles": [
+        "## 短路蜂鸣测试"
+      ]
     },
     {
-      "id": "S02", "category": "同义改写",
+      "id": "S02",
+      "category": "同义改写",
       "question": "测线路通不通用什么档位？",
-      "expected_titles": ["## 短路蜂鸣测试"]
+      "expected_titles": [
+        "## 短路蜂鸣测试"
+      ]
     },
     {
-      "id": "S03", "category": "同义改写",
+      "id": "S03",
+      "category": "同义改写",
       "question": "红表笔和黑表笔分别插哪个孔？",
-      "expected_titles": ["## 控制与端口"]
+      "expected_titles": [
+        "## 控制与端口"
+      ]
     },
     {
-      "id": "S04", "category": "同义改写",
+      "id": "S04",
+      "category": "同义改写",
       "question": "怎么测干电池还剩多少电量？",
-      "expected_titles": ["## 电池测试"]
+      "expected_titles": [
+        "## 电池测试"
+      ]
     },
     {
-      "id": "S05", "category": "同义改写",
+      "id": "S05",
+      "category": "同义改写",
       "question": "这个表每个功能的量程范围是多少？",
-      "expected_titles": ["## 规格"]
+      "expected_titles": [
+        "## 规格"
+      ]
     },
     {
-      "id": "S06", "category": "同义改写",
+      "id": "S06",
+      "category": "同义改写",
       "question": "二极管档的开路电压是多少？",
-      "expected_titles": ["## 技术指标说明"]
+      "expected_titles": [
+        "## 技术指标说明"
+      ]
     },
     {
-      "id": "S07", "category": "同义改写",
+      "id": "S07",
+      "category": "同义改写",
       "question": "显示屏上出现的各种符号都代表什么意思？",
-      "expected_titles": ["## 功能符号指示", "## 安全标识"]
+      "expected_titles": [
+        "## 功能符号指示",
+        "## 安全标识"
+      ]
     },
     {
-      "id": "A01", "category": "安全警告",
+      "id": "A01",
+      "category": "安全警告",
       "question": "使用这个万用表有哪些安全注意事项？",
-      "expected_titles": ["## 安全手册"]
+      "expected_titles": [
+        "## 安全手册"
+      ]
     },
     {
-      "id": "A02", "category": "安全警告",
+      "id": "A02",
+      "category": "安全警告",
       "question": "测电阻之前要做什么准备，才能防止触电？",
-      "expected_titles": ["## 电阻测量", "## 安全手册"]
+      "expected_titles": [
+        "## 电阻测量",
+        "## 安全手册"
+      ]
     },
     {
-      "id": "A03", "category": "安全警告",
+      "id": "A03",
+      "category": "安全警告",
       "question": "用10A档测大电流有什么时间限制？",
-      "expected_titles": ["## 直流电流测量"]
+      "expected_titles": [
+        "## 直流电流测量"
+      ]
     },
     {
-      "id": "A04", "category": "安全警告",
+      "id": "A04",
+      "category": "安全警告",
       "question": "表盘上带感叹号的三角形警告符号是什么意思？",
-      "expected_titles": ["## 安全标识", "## 功能符号指示"]
+      "expected_titles": [
+        "## 安全标识",
+        "## 功能符号指示"
+      ]
     },
     {
-      "id": "X01", "category": "细节长尾",
+      "id": "X01",
+      "category": "细节长尾",
       "question": "电池后盖怎么打开？",
-      "expected_titles": ["## 电池安装"]
+      "expected_titles": [
+        "## 电池安装"
+      ]
     },
     {
-      "id": "X02", "category": "细节长尾",
+      "id": "X02",
+      "category": "细节长尾",
       "question": "电池什么时候需要更换，怎么判断？",
-      "expected_titles": ["## 更换电池"]
+      "expected_titles": [
+        "## 更换电池"
+      ]
     },
     {
-      "id": "X03", "category": "细节长尾",
+      "id": "X03",
+      "category": "细节长尾",
       "question": "二极管测试时通过的电流最大是多少？",
-      "expected_titles": ["## 技术指标说明"]
+      "expected_titles": [
+        "## 技术指标说明"
+      ]
     },
     {
-      "id": "X04", "category": "细节长尾",
+      "id": "X04",
+      "category": "细节长尾",
       "question": "蜂鸣档在电阻低于多少欧姆的时候才会响？",
-      "expected_titles": ["## 技术指标说明", "## 短路蜂鸣测试"]
+      "expected_titles": [
+        "## 技术指标说明",
+        "## 短路蜂鸣测试"
+      ]
     },
     {
-      "id": "X05", "category": "细节长尾",
+      "id": "X05",
+      "category": "细节长尾",
       "question": "功能选择转盘上都有哪些档位？",
-      "expected_titles": ["## 控制与端口", "## 功能符号指示"]
+      "expected_titles": [
+        "## 控制与端口",
+        "## 功能符号指示"
+      ]
     },
     {
-      "id": "X06", "category": "细节长尾",
+      "id": "X06",
+      "category": "细节长尾",
       "question": "开机和关机的时候要注意什么，听说开机会损坏仪表？",
-      "expected_titles": ["## 直流电压测量"]
+      "expected_titles": [
+        "## 直流电压测量"
+      ]
     },
     {
-      "id": "N01", "category": "负例", "negative": true,
+      "id": "N01",
+      "category": "负例",
+      "negative": true,
       "question": "怎么给手机更换钢化膜？",
       "expected_titles": []
     },
     {
-      "id": "N02", "category": "负例", "negative": true,
+      "id": "N02",
+      "category": "负例",
+      "negative": true,
       "question": "电饭煲内胆可以用钢丝球刷吗？",
       "expected_titles": []
     },
     {
-      "id": "N03", "category": "负例", "negative": true,
+      "id": "N03",
+      "category": "负例",
+      "negative": true,
       "question": "如何办理护照？",
       "expected_titles": []
     }

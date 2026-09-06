@@ -48,10 +48,11 @@ class TestTruncateEntityNameLength:
 
 class TestItemNameFilterExpr:
     def test_quoting(self):
-        assert _item_name_filter_expr(["RS-12", "万用表"]) == "item_name in ['RS-12', '万用表']"
+        # 归一化字段：去空白 + 小写
+        assert _item_name_filter_expr(["RS-12", "万用表"]) == 'item_name_norm in ["rs-12", "万用表"]'
 
     def test_empty(self):
-        assert _item_name_filter_expr([]) == "item_name in []"
+        assert _item_name_filter_expr([]) == ""
 
 
 class TestCleanSeedRows:

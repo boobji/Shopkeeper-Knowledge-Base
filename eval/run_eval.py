@@ -126,7 +126,7 @@ def evaluate_all(cases, retrieval_fn, k=5):
 
 
 # ================================================================
-#  检索实现（复用线上同一条链路）
+#  检索实现（复用线上同一条链路：domain.retrieval.search_chunks）
 # ================================================================
 def check_milvus_reachable() -> tuple:
     """启动前先做 TCP 探测，给出清晰的服务未启动提示"""
@@ -142,30 +142,27 @@ def check_milvus_reachable() -> tuple:
         return False, uri
 
 
-def build_retrieval_fn(mode: str, pool_limit: int):
+def build_retrieval_fn(mode: str, pool_limit: int, search_limit: int = None, use_child: bool = True):
     """
     构造 retrieval_fn(question, item_name) -> List[str 标题]
-    mode=vector : 混合检索 top-5（与线上 VectorSearchNode 一致）
+    mode=vector : 混合检索 top-search_limit（与线上 VectorSearchNode 同链路）
     mode=rerank : 混合检索 top-pool_limit -> BGE-Reranker 精排 -> top-5
+    use_child   : 是否启用子块集合（Parent-Child）
     """
     from knowledge.utils.bge_m3_embedding_util import (
         get_bge_m3_embedding_model, generate_hybrid_embeddings)
-    from knowledge.utils.milvus_util import (
-        get_milvus_client, create_hybrid_search_requests,
-        execute_hybrid_search_query)
+    from knowledge.utils.milvus_util import get_milvus_client
+    from knowledge.domain.retrieval import search_chunks
     from knowledge.processor.query_process.config import get_config
 
     config = get_config()
+    search_limit = search_limit or RETRIEVE_TOP_K
     embedding_model = get_bge_m3_embedding_model()
     milvus_client = get_milvus_client()
     reranker = None
     if mode == "rerank":
         from knowledge.utils.bge_rerank_util import get_reranker_model
         reranker = get_reranker_model()
-        if reranker is None:
-            raise RuntimeError("重排序模型加载失败，无法运行 rerank 模式")
-
-    OUTPUT_FIELDS = ["chunk_id", "content", "title", "file_title", "item_name"]
 
     def retrieve(question: str, item_name: str):
         # 1. 问题向量化（与线上完全一致的调用方式）
@@ -173,39 +170,28 @@ def build_retrieval_fn(mode: str, pool_limit: int):
         if not emb:
             return []
 
-        # 2. item_name 过滤表达式（与线上 _item_name_filter 一致）
-        expr = None
-        if item_name:
-            expr = f' item_name in ["{item_name}"]'
-
-        # 3. 混合检索（vector 模式取 top5 对齐线上；rerank 模式取大池子再精排）
-        limit = RETRIEVE_TOP_K if mode == "vector" else pool_limit
-        reqs = create_hybrid_search_requests(
-            dense_vector=emb["dense"][0],
-            sparse_vector=emb["sparse"][0],
-            expr=expr,
-            limit=limit,
+        # 2. 统一检索链路：子块(+过滤→全库) → 父块(+过滤→全库)
+        hits = search_chunks(
+            milvus_client,
+            emb["dense"][0],
+            emb["sparse"][0],
+            item_names=[item_name] if item_name else [],
+            limit=pool_limit if mode == "rerank" else search_limit,
+            chunks_collection=config.chunks_collection,
+            child_collection=config.child_chunks_collection if (use_child and config.parent_child_enabled) else None,
         )
-        res = execute_hybrid_search_query(
-            milvus_client=milvus_client,
-            collection_name=config.chunks_collection,
-            search_requests=reqs,
-            norm_score=True,
-            limit=limit,
-            output_fields=OUTPUT_FIELDS,
-        )
-        if not res or not res[0]:
+        if not hits:
             return []
 
         docs = []
-        for hit in res[0]:
+        for hit in hits:
             entity = hit.get("entity", hit)  # 兼容不同返回结构
             docs.append({
                 "title": entity.get("title", "") or "",
                 "content": entity.get("content", "") or "",
             })
 
-        # 4. rerank 模式：BGE-Reranker 精排（与线上 RerankNode 同一 compute_score）
+        # 3. rerank 模式：BGE-Reranker 精排（与线上 RerankNode 同一 compute_score）
         if mode == "rerank" and reranker is not None and docs:
             pairs = [(question, d["content"]) for d in docs]
             scores = reranker.compute_score(sentence_pairs=pairs)
@@ -268,6 +254,54 @@ def save_report(mode, summary, positives, negatives, args):
 
 
 # ================================================================
+#  网格对比：search_limit × 子块开关 × 模式
+# ================================================================
+def run_grid(cases, args):
+    """跑一组检索配置并输出对比表。"""
+    child_label = "无子块" if args.no_child else "含子块"
+    configs = []
+    for limit in (5, 10, 20):
+        configs.append((f"vector limit={limit} ({child_label})", "vector", limit, not args.no_child))
+    configs.append((f"rerank pool={args.limit} ({child_label})", "rerank", args.limit, not args.no_child))
+
+    all_summaries = {}
+    for label, mode, limit, use_child in configs:
+        print(f"\n{'#' * 76}\n#  配置：{label}\n{'#' * 76}")
+        retrieval_fn = build_retrieval_fn(mode, limit, search_limit=limit, use_child=use_child)
+        summary, positives, negatives = evaluate_all(cases, retrieval_fn)
+        all_summaries[label] = summary
+        for k, v in summary.items():
+            print(f"  {k:<10} {v:8.4f}")
+
+    # 汇总对比表
+    print(f"\n{'=' * 100}\n  网格对比（正例指标，越高越好）\n{'=' * 100}")
+    metric_keys = ["Hit@1", "Hit@3", "Hit@5", "Recall@5", "MRR@5", "nDCG@5"]
+    header = f"  {'配置':<28}" + "".join(f"{k:>12}" for k in metric_keys)
+    print(header)
+    print("  " + "-" * (28 + 12 * len(metric_keys)))
+    for label, summary in all_summaries.items():
+        row = f"  {label:<28}" + "".join(f"{summary.get(k, 0):>12.4f}" for k in metric_keys)
+        print(row)
+
+    if not args.no_report:
+        REPORT_DIR.mkdir(parents=True, exist_ok=True)
+        path = REPORT_DIR / f"eval_grid_{time.strftime('%Y%m%d_%H%M%S')}.md"
+        lines = [
+            "# 检索网格对比报告",
+            "",
+            f"- 时间：{time.strftime('%Y-%m-%d %H:%M:%S')}",
+            f"- 评测集：{EVAL_SET_PATH.name}",
+            "",
+            "| 配置 | " + " | ".join(metric_keys) + " |",
+            "|---|" + "---|" * len(metric_keys),
+        ]
+        for label, summary in all_summaries.items():
+            lines.append("| " + label + " | " + " | ".join(f"{summary.get(k, 0):.4f}" for k in metric_keys) + " |")
+        path.write_text("\n".join(lines), encoding="utf-8")
+        print(f"\n网格报告已保存：{path}")
+
+
+# ================================================================
 #  自检：不依赖任何服务/模型，用造的结果验证指标计算
 # ================================================================
 def self_test():
@@ -310,6 +344,12 @@ def main():
                         help="vector=仅混合检索；rerank=仅精排；both=对比（默认）")
     parser.add_argument("--limit", type=int, default=20,
                         help="rerank 模式的召回池大小（默认 20）")
+    parser.add_argument("--search-limit", type=int, default=None,
+                        help="vector 模式的直接检索条数（默认 5，对齐线上）")
+    parser.add_argument("--no-child", action="store_true",
+                        help="禁用子块集合（对照 Parent-Child 的收益）")
+    parser.add_argument("--grid", action="store_true",
+                        help="网格对比：search_limit × 子块开关 × 模式，输出汇总对比表")
     parser.add_argument("--eval-set", type=str, default=str(EVAL_SET_PATH))
     parser.add_argument("--no-report", action="store_true", help="不写报告文件")
     parser.add_argument("--self-test", action="store_true", help="自检指标计算（无需服务）")
@@ -337,13 +377,19 @@ def main():
         return 1
     print(f"Milvus 已连通：{uri}")
 
+    if args.grid:
+        run_grid(cases, args)
+        return 0
+
     modes = ["vector", "rerank"] if args.mode == "both" else [args.mode]
     all_summaries = {}
     report_paths = []
     for mode in modes:
         print(f"\n{'#' * 76}\n#  模式：{mode}\n{'#' * 76}")
         print("加载模型与客户端中（首次会下载/加载权重，请耐心等待）...")
-        retrieval_fn = build_retrieval_fn(mode, args.limit)
+        retrieval_fn = build_retrieval_fn(mode, args.limit,
+                                          search_limit=args.search_limit,
+                                          use_child=not args.no_child)
         summary, positives, negatives = evaluate_all(cases, retrieval_fn)
         all_summaries[mode] = summary
 

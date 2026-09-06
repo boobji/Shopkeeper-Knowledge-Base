@@ -9,6 +9,7 @@ from knowledge.processor.import_process.state import ImportGraphState
 from knowledge.processor.import_process.config import get_config
 from knowledge.utils.bge_m3_embedding_util import get_bge_m3_embedding_model
 from knowledge.utils.llm_client_util import get_llm_client
+from knowledge.domain.filters import normalize_item_name
 from knowledge.prompts.item_name_prompt import ITEM_NAME_SYSTEM_PROMPT, \
     ITEM_NAME_USER_PROMPT_TEMPLATE
 from knowledge.utils.milvus_util import get_milvus_client
@@ -164,7 +165,8 @@ class ItemNameRecognitionNode(BaseNode):
             # 4. 准备数据
             data = {
                 "file_title": file_title,
-                "item_name": item_name
+                "item_name": item_name,
+                "item_name_norm": normalize_item_name(item_name),
             }
 
             # 5. 构建稠密向量
@@ -193,6 +195,7 @@ class ItemNameRecognitionNode(BaseNode):
                          is_primary=True, auto_id=True, max_length=100)
         schema.add_field(field_name="file_title", datatype=DataType.VARCHAR, max_length=65535)
         schema.add_field(field_name="item_name", datatype=DataType.VARCHAR, max_length=65535)
+        schema.add_field(field_name="item_name_norm", datatype=DataType.VARCHAR, max_length=65535)
         schema.add_field(field_name="dense_vector", datatype=DataType.FLOAT_VECTOR, dim=1024)
         schema.add_field(field_name="sparse_vector", datatype=DataType.SPARSE_FLOAT_VECTOR)
 

@@ -20,6 +20,34 @@ class ImportConfig:
     img_content_length: int = 200
     min_content_length: int = 500  # 合并短内容的最小长度
     overlap_sentences: int = 1  # 句子级切分时的重叠句数
+    chunk_overlap: int = field(
+        default_factory=lambda: int(os.getenv("CHUNK_OVERLAP", "200"))
+    )  # 长章节二次切分的相邻重叠字符数（0=关闭；建议为 max_content_length 的 10% 左右）
+
+    # ==================== Parent-Child 索引 ====================
+    parent_child_enabled: bool = field(
+        default_factory=lambda: os.getenv("PARENT_CHILD_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on")
+    )  # 检索子块（小块高精度）、返回父块（大块足上下文）
+    child_chunks_collection: str = field(
+        default_factory=lambda: os.getenv("CHILD_CHUNKS_COLLECTION", "kb_child_chunks")
+    )
+    child_chunk_size: int = field(
+        default_factory=lambda: int(os.getenv("CHILD_CHUNK_SIZE", "450"))
+    )
+    child_chunk_overlap: int = field(
+        default_factory=lambda: int(os.getenv("CHILD_CHUNK_OVERLAP", "80"))
+    )
+
+    # ==================== Contextual Retrieval ====================
+    contextual_retrieval_enabled: bool = field(
+        default_factory=lambda: os.getenv("CONTEXTUAL_RETRIEVAL", "1").strip().lower() in ("1", "true", "yes", "on")
+    )  # 入库前用 LLM 为每个 chunk 生成上下文前缀并参与向量化（Anthropic contextual retrieval）
+    contextual_max_workers: int = field(
+        default_factory=lambda: int(os.getenv("CONTEXTUAL_MAX_WORKERS", "4"))
+    )  # 上下文生成的并发数
+    contextual_timeout: float = field(
+        default_factory=lambda: float(os.getenv("CONTEXTUAL_TIMEOUT", "30"))
+    )  # 单次上下文生成的 LLM 超时（秒）
     item_name_chunk_k: int = 3  # 商品名识别时使用的切片数量
     item_name_chunk_size: int = 2500  # 商品名识别时使用的切片内容的长度
 

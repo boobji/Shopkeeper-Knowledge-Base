@@ -242,7 +242,7 @@ class ImportMilvusNode(BaseNode):
 
         # 2. 判断集合是否有
         if milvus_client.has_collection(collection_name=collection_name):
-            self.logger(f"{collection_name}集合已经存在")
+            self.logger.info(f"集合 {collection_name} 已存在")
             return
 
         # 3. 创建约束

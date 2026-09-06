@@ -21,7 +21,8 @@ def get_bge_m3_embedding_model():
     # 1.获取参数
     model_name = os.getenv('BGE_M3_PATH', 'BAAI/bge_m3')
     device = os.getenv('BGE_DEVICE', 'cpu')
-    use_fp16 = os.getenv('BGE_FP16', False)
+    # 环境变量是字符串，必须显式解析布尔值，避免 "0"/"false" 被当成真值
+    use_fp16 = os.getenv('BGE_FP16', '').strip().lower() in ('1', 'true', 'yes', 'on')
     try:
         # 定义对象
         bge_m3_ef = BGEM3EmbeddingFunction(

@@ -14,18 +14,17 @@ load_dotenv(dotenv_path=_ENV_FILE, override=True)
 cache_llm_client = {}
 def get_llm_client(model_name: str = None, temperature: float = 0.0, response_format: bool = False) -> ChatOpenAI:
     """
-
-    Returns:返回LLM客户端对象
-    缓存的对象是client
-    缓存的key：不同的节点用不同的模型以及同一节点用不同的响应格式
+    返回 LLM 客户端对象（带缓存）。
+    缓存 key 为 (model_name, temperature, response_format)，三者任一不同都对应独立实例。
+    注意：未显式传 model_name 时使用 ITEM_MODEL（历史行为，answer_output 等节点依赖此默认）。
     """
 
     model_name = model_name or os.getenv('ITEM_MODEL',"qwen-flash")
     api_key=os.getenv("OPENAI_API_KEY")
     base_url=os.getenv("OPENAI_API_BASE")
 
-    # 缓存命中直接返回
-    cache_key =(model_name, response_format) # 复合缓存key
+    # 缓存命中直接返回（temperature 必须参与 key，否则不同温度会复用同一实例）
+    cache_key =(model_name, temperature, response_format) # 复合缓存key
     if cache_key in cache_llm_client:
         return cache_llm_client[cache_key]
 

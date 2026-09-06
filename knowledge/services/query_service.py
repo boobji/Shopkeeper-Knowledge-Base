@@ -7,7 +7,7 @@ from typing import List, Dict, Any
 # from knowledge.processor.query_process.main_graph import query_app
 from knowledge.utils.task_util import update_task_status, get_task_result, \
     get_task_status, get_done_task_list, get_running_task_list, \
-    TASK_STATUS_PROCESSING, TASK_STATUS_COMPLETED
+    TASK_STATUS_PROCESSING, TASK_STATUS_COMPLETED, TASK_STATUS_FAILED, set_task_result
 from knowledge.processor.query_process.main_graph import query_app
 from knowledge.utils.sse_util import create_sse_queue, push_sse_event
 
@@ -42,8 +42,11 @@ class QueryService:
             query_app.invoke(default_state)
         except Exception as e:
             logger.error(f"查询流程执行失败: {e}", exc_info=True)
-        finally:
+            update_task_status(task_id, TASK_STATUS_FAILED)
+            set_task_result(task_id, "error", str(e))
+        else:
             update_task_status(task_id, TASK_STATUS_COMPLETED)
+        finally:
             if is_stream:
                 push_sse_event(task_id, "progress", {
                     "status": get_task_status(task_id),

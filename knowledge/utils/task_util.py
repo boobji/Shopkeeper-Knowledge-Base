@@ -1,4 +1,5 @@
 from typing import Dict, List
+import time
 from collections import defaultdict
 
 # 只要访问不存在的 key，自动帮你初始化为 []
@@ -9,6 +10,12 @@ _tasks_done_list: Dict[str, List[str]] = defaultdict(list)
 _tasks_result: Dict[str, Dict[str, str]] = defaultdict(dict)
 
 _tasks_status: Dict[str, str] = {}
+
+# 任务首次记录时间，用于过期清理（纯内存存储，进程重启即失效）
+_tasks_created_at: Dict[str, float] = {}
+
+# 任务记录保留时长：超过后在下一次新任务创建时被清理，防止字典无限增长
+_TASK_TTL_SECONDS = 2 * 60 * 60
 
 TASK_STATUS_PROCESSING = "processing"  # 任务处理中
 TASK_STATUS_COMPLETED = "completed"  # 任务完成
@@ -90,6 +97,22 @@ def update_task_status(task_id: str, status_name: str) -> None:
     # 1. 更新指定任务的总体运行状态（如 processing 等）
     _tasks_status[task_id] = status_name
 
+    # 2. 记录任务首次出现时间，并顺带清理过期任务（内存防泄漏）
+    now = time.time()
+    if task_id not in _tasks_created_at:
+        _tasks_created_at[task_id] = now
+        _prune_stale_tasks(now=now, keep=task_id)
+
+
+def _prune_stale_tasks(now: float, keep: str) -> None:
+    """清理超过 TTL 的任务记录（当前任务除外）。"""
+    stale = [
+        task_id for task_id, created_at in _tasks_created_at.items()
+        if task_id != keep and now - created_at > _TASK_TTL_SECONDS
+    ]
+    for task_id in stale:
+        clear_task(task_id)
+
 
 def set_task_result(task_id: str, key: str, value: str) -> None:
     """
@@ -113,4 +136,6 @@ def clear_task(task_id: str):
     # 3. 安全移除该任务的总体状态记录
     _tasks_status.pop(task_id, None)
     # 4. 安全移除该任务的结果记录
-    # _tasks_result.pop(task_id, None)
+    _tasks_result.pop(task_id, None)
+    # 5. 安全移除该任务的创建时间记录
+    _tasks_created_at.pop(task_id, None)

@@ -642,7 +642,8 @@ class _Neo4jGraphReader:
                     # d) 返回
             except Exception as e:
                 self._logger.error(f"查询 {seed_name} 种子节点的一跳关系失败: {str(e)}")
-                return []
+                # 单个种子节点失败不影响已收集的关系，继续处理其余种子
+                continue
         self._logger.info(f"查询 {len(seed_nodes)} 个种子节点对应的关系:{len(one_hop_relations_final_result)} 条")
         return one_hop_relations_final_result
 

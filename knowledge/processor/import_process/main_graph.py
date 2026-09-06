@@ -62,7 +62,6 @@ def create_import_graph() -> StateGraph:
                                              END: END
                                          }
                                          )
-    graph_pineline.add_edge('entry_node', 'pdf_to_md_node')
     graph_pineline.add_edge('pdf_to_md_node', 'md_img_node')
     graph_pineline.add_edge('md_img_node', 'document_split_node')
     graph_pineline.add_edge('document_split_node', 'item_name_recognition_node')

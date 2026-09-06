@@ -46,8 +46,8 @@ class QueryConfig:
 
     # ==================== 检索配置 ====================
     embedding_search_limit: int = field(
-        default_factory=lambda: int(os.getenv("EMBEDDING_SEARCH_LIMIT", "10"))
-    )
+        default_factory=lambda: int(os.getenv("EMBEDDING_SEARCH_LIMIT", "5"))
+    )  # 网格实测：5 的 Hit@1/MRR 优于 10/20（更大候选池把相关项挤出 top 位）
     hyde_search_limit: int = field(
         default_factory=lambda: int(os.getenv("HYDE_SEARCH_LIMIT", "5"))
     )

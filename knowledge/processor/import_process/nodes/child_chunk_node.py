@@ -43,9 +43,10 @@ class ChildChunkNode(BaseNode):
             return state
 
         try:
-            # 1. 为父块生成稳定标识（随父块入库，供子块反查）
+            # 1. 父块标识应在 import_milvus_node 入库前已生成；此处仅兜底补齐
             for chunk in chunks:
                 if not chunk.get('chunk_uid'):
+                    self.logger.warning("父块缺少 chunk_uid（时序异常），兜底补齐")
                     chunk['chunk_uid'] = uuid.uuid4().hex
 
             # 2. 父块正文切子块

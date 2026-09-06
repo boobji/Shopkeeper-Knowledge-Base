@@ -206,6 +206,10 @@ class ImportMilvusNode(BaseNode):
                 # 归一化商品名：检索过滤的匹配基准（历史数据可能没有该字段，此处统一补齐）
                 if not chunk.get('item_name_norm'):
                     chunk['item_name_norm'] = normalize_item_name(chunk.get('item_name', ''))
+                # 父块稳定标识：必须在入库前生成，子块靠它反查父块
+                if not chunk.get('chunk_uid'):
+                    import uuid as _uuid
+                    chunk['chunk_uid'] = _uuid.uuid4().hex
                 validated_chunks.append(chunk)
             else:
                 self.logger.error("待入库的切块chunk的混合向量不存在")

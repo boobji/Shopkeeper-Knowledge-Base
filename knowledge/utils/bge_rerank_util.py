@@ -6,6 +6,8 @@ import threading
 
 from FlagEmbedding import FlagReranker
 
+from knowledge.core.exceptions import EmbeddingError
+
 logger = logging.getLogger(__name__)
 
 _reranker_model = None
@@ -37,5 +39,5 @@ def get_reranker_model() -> FlagReranker:
             logger.info("Reranker 模型初始化成功！")
         except Exception as e:
             logger.error(f"初始化 Reranker 模型失败: {e}", exc_info=True)
-            return None
+            raise EmbeddingError(f"Reranker 模型初始化失败: {e}", cause=e)
         return _reranker_model

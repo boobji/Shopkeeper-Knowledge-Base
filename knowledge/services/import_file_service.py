@@ -4,6 +4,7 @@ from datetime import datetime
 import shutil
 from typing import Tuple
 from fastapi import UploadFile, HTTPException
+from knowledge.core.exceptions import StorageError
 from knowledge.core.paths import get_local_base_dir
 from knowledge.utils.minio_util import get_minio_client
 from knowledge.services.task_service import TaskService
@@ -63,12 +64,11 @@ class ImportFileService:
 
         """
 
-        # 1. 获取minio客户端
-        minio_client = get_minio_client()
-
-        # 2. 判断minio客户端是否存在
-        if not minio_client:
-            raise HTTPException(status_code=500, detail="MinIO 服务不可用")
+        # 1. 获取minio客户端（不可用会抛 StorageError，转成 HTTP 503）
+        try:
+            minio_client = get_minio_client()
+        except StorageError as e:
+            raise HTTPException(status_code=503, detail=f"MinIO 服务不可用: {e}")
 
         # 3. 构建Minio客户端对象名（归档文件，日期格式与本地目录保持一致 YYYYMMDD）
         minio_object_name = f"origin_files/{datetime.now().strftime('%Y%m%d')}/{file.filename}"

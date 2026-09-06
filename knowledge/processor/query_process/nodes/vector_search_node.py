@@ -18,13 +18,9 @@ class VectorSearchNode(BaseNode):
         # 1. 参数校验
         validated_query, validate_item_names = self._validate_query_inputs(state)
 
-        # 2. 获取嵌入模型&milvus客户端
+        # 2. 获取嵌入模型&milvus客户端（不可用会抛异常 → 任务失败，而非静默空结果）
         embedding_model = get_bge_m3_embedding_model()
         milvus_client = get_milvus_client()
-        if embedding_model is None or milvus_client is None:
-            # 并行分支节点：失败/空结果必须返回增量更新，
-            # 返回整个 state 会与其他并行节点并发写 session_id，触发 InvalidUpdateError
-            return {}
 
         # 3. 对问题向量化(稀疏向量做了字典的处理) 注意：【generate_hybrid_embeddings】
         embedding_result = generate_hybrid_embeddings(embedding_model, embedding_documents=[validated_query])

@@ -1,9 +1,11 @@
 """外部资源连接的统一单例管理（线程安全懒加载）。
 
 所有客户端/驱动只在这里创建与缓存：
-- 双重检查 + 线程锁：FastAPI BackgroundTasks 跑在线程池里，并发导入时
+- 双重检查 + 线程锁：FastAPI 的后台任务跑在线程池里，并发导入时
   无锁懒加载会竞态重复建连。
-- 失败不缓存：创建失败返回 None，下次调用重试（与历史行为一致）。
+- 失败快速暴露：连接失败抛 StorageError 系异常（由 BaseNode 统一包装成任务失败），
+  不再返回 None 让调用方层层判空后静默降级。
+- 失败不缓存：创建失败抛异常，下次调用重试（全局变量只在成功后赋值）。
 - MinIO 建桶只在首次创建客户端时尝试一次，不做每次调用的 bucket_exists。
 """
 
@@ -11,6 +13,8 @@ import logging
 import os
 import threading
 from typing import Optional
+
+from knowledge.core.exceptions import MilvusError, Neo4jError, StorageError
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +37,12 @@ def get_milvus_client():
             from pymilvus import MilvusClient
 
             milvus_uri = os.getenv('MILVUS_URL', 'http://127.0.0.1:19530')
-            _milvus_client = MilvusClient(uri=milvus_uri)
-            return _milvus_client
+            client = MilvusClient(uri=milvus_uri)
         except Exception as e:
             logger.error(f"Milvus 客户端创建失败: {e}")
-            return None
+            raise MilvusError(f"Milvus 客户端创建失败: {e}", cause=e)
+        _milvus_client = client
+        return _milvus_client
 
 
 # ------------------------------------------------------------------
@@ -69,7 +74,7 @@ def get_neo4j_driver():
             return _neo4j_driver
         except Exception as e:
             logger.error(f"初始化 Neo4j 驱动失败: {e}", exc_info=True)
-            return None
+            raise Neo4jError(f"Neo4j 驱动初始化失败: {e}", cause=e)
 
 
 # ------------------------------------------------------------------
@@ -144,8 +149,8 @@ def get_minio_client():
                 logger.info(f"桶 {bucket_name} 已创建")
             else:
                 logger.info(f"桶 {bucket_name} 已存在")
-            _minio_client = client
-            return _minio_client
         except Exception as e:
             logger.error(f"MinIO 客户端创建失败: {e}")
-            return None
+            raise StorageError(f"MinIO 客户端创建失败: {e}", cause=e)
+        _minio_client = client
+        return _minio_client

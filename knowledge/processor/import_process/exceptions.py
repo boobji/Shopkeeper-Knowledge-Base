@@ -5,7 +5,14 @@
 异常基类与消息格式在 core.exceptions.ProcessError 中统一定义。
 """
 
-from knowledge.core.exceptions import ProcessError
+from knowledge.core.exceptions import (  # noqa: F401 存储类错误两侧共用 core 的统一定义
+    EmbeddingError,
+    LLMError,
+    MilvusError,
+    Neo4jError,
+    ProcessError,
+    StorageError,
+)
 
 
 class ImportProcessError(ProcessError):
@@ -35,31 +42,6 @@ class ImageProcessingError(FileProcessingError):
 
 class DocumentSplitError(ImportProcessError):
     """文档切分错误：切分逻辑异常"""
-    pass
-
-
-class EmbeddingError(ImportProcessError):
-    """向量化错误：模型调用失败、向量生成异常"""
-    pass
-
-
-class LLMError(ImportProcessError):
-    """LLM 调用错误：API 调用失败、响应解析失败"""
-    pass
-
-
-class StorageError(ImportProcessError):
-    """存储错误：数据库操作失败"""
-    pass
-
-
-class MilvusError(StorageError):
-    """Milvus 存储错误"""
-    pass
-
-
-class Neo4jError(StorageError):
-    """Neo4j 存储错误"""
     pass
 
 

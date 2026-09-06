@@ -7,6 +7,8 @@ LangGraph 抛 InvalidUpdateError（INVALID_CONCURRENT_GRAPH_UPDATE），整轮�
 
 import json
 
+import pytest
+
 
 import knowledge.processor.query_process.nodes.hyde_search_node as hyde_mod
 import knowledge.processor.query_process.nodes.vector_search_node as vector_mod
@@ -22,9 +24,16 @@ VALID_INPUTS = {"rewritten_query": "如何测量电压", "item_names": ["RS-12"]
 class TestParallelNodesReturnIncrementalUpdates:
     """失败/空结果时必须返回 {}（增量更新），而不是整个 state。"""
 
-    def test_vector_missing_embedding_model(self, monkeypatch):
-        monkeypatch.setattr(vector_mod, "get_bge_m3_embedding_model", lambda: None)
-        assert VectorSearchNode().process(dict(VALID_INPUTS)) == {}
+    def test_vector_missing_embedding_model_raises(self, monkeypatch):
+        """嵌入模型不可用时应快速抛异常（任务失败），而非静默返回空结果。"""
+        from knowledge.core.exceptions import EmbeddingError
+
+        def raise_emb(*args, **kwargs):
+            raise EmbeddingError("BGE-M3 加载失败")
+
+        monkeypatch.setattr(vector_mod, "get_bge_m3_embedding_model", raise_emb)
+        with pytest.raises(EmbeddingError):
+            VectorSearchNode().process(dict(VALID_INPUTS))
 
     def test_vector_no_search_hits(self, monkeypatch):
         monkeypatch.setattr(vector_mod, "get_bge_m3_embedding_model", lambda: object())
@@ -36,9 +45,15 @@ class TestParallelNodesReturnIncrementalUpdates:
         monkeypatch.setattr(vector_mod, "execute_hybrid_search_query", lambda **kwargs: [[]])
         assert VectorSearchNode().process(dict(VALID_INPUTS)) == {}
 
-    def test_hyde_missing_embedding_model(self, monkeypatch):
-        monkeypatch.setattr(hyde_mod, "get_bge_m3_embedding_model", lambda: None)
-        assert HyDeSearchNode().process(dict(VALID_INPUTS)) == {}
+    def test_hyde_missing_embedding_model_raises(self, monkeypatch):
+        from knowledge.core.exceptions import EmbeddingError
+
+        def raise_emb(*args, **kwargs):
+            raise EmbeddingError("BGE-M3 加载失败")
+
+        monkeypatch.setattr(hyde_mod, "get_bge_m3_embedding_model", raise_emb)
+        with pytest.raises(EmbeddingError):
+            HyDeSearchNode().process(dict(VALID_INPUTS))
 
     def test_hyde_no_search_hits(self, monkeypatch):
         monkeypatch.setattr(hyde_mod, "get_bge_m3_embedding_model", lambda: object())

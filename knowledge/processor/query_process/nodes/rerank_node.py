@@ -151,11 +151,8 @@ class RerankNode(BaseNode):
         if not merged_multi_docs:
             return []
 
-        # 2. 获取reranker模型
+        # 2. 获取reranker模型（加载失败会抛 EmbeddingError → 任务失败）
         rerank_model = get_reranker_model()
-        if rerank_model is None:
-            self.logger.error("重排序模型获取失败")
-            return []
 
         # 3. 构建Q->D的pair对 [(Q,D1[content]),(Q,D2:[content]),(Q,Dn)]
         query_doc_content_pairs = [(user_query, doc.get('content')) for doc in merged_multi_docs]

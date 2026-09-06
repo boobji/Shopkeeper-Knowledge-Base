@@ -9,7 +9,6 @@
 
 import json
 import time
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from json import JSONDecodeError
@@ -26,6 +25,7 @@ from knowledge.domain.kg_schema import (
     MAX_ENTITY_NAME_LENGTH,
 )
 from knowledge.domain.kg_writer import MilvusEntityWriter, Neo4jGraphWriter, ProcessingStats
+from knowledge.domain.llm_parse import strip_json_fence
 from knowledge.prompts.upload.import_prompt import KNOWLEDGE_GRAPH_SYSTEM_PROMPT
 from knowledge.utils.milvus_util import get_milvus_client
 from knowledge.utils.neo4j_util import get_neo4j_driver
@@ -229,11 +229,8 @@ class KnowledgeGraphNode(BaseNode):
         if not llm_response:
             raise ValueError("LLM提取chunk的图谱信息不存在")
 
-        # 2. 清洗json代码块的围栏
-        # 2.1 前面的7个非法字符踢掉```json
-        # 2.2 后面的3个非法的字符踢掉```
-        cleaned = re.sub(r"^```(?:json)?\s*", "", llm_response.strip())
-        cleaned = re.sub(r"\s*```$", "", cleaned)
+        # 2. 清洗json代码块的围栏（```json ... ```）
+        cleaned = strip_json_fence(llm_response)
 
         # 3. 反序列化
         try:

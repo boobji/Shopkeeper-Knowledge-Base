@@ -12,13 +12,13 @@
 
 import json
 import logging
-import re
 from json import JSONDecodeError
 from typing import Any, Dict, List, Union
 
 from pymilvus import MilvusClient
 from langchain_core.messages import SystemMessage, HumanMessage
 
+from knowledge.domain.llm_parse import strip_json_fence
 from knowledge.domain.kg_schema import (
     CYPHER_EXACT_SEEDS,
     CYPHER_FUZZY_SEEDS,
@@ -69,12 +69,11 @@ def clean_parse_llm_content(llm_response_content: str) -> List[str]:
         return []
 
     # 2. 清洗json代码围栏
-    text = re.sub(r"^```(?:json)?\s*", "", llm_response_content)
-    re_sub = re.sub(r"\s*```$", "", text)
+    cleaned = strip_json_fence(llm_response_content)
 
     # 3. 反序列解析
     try:
-        deserialized_result: Dict[str, Any] = json.loads(re_sub)
+        deserialized_result: Dict[str, Any] = json.loads(cleaned)
     except JSONDecodeError as e:
         logging.error(f"JSON 反序列失败，原因: {str(e)}")
         return []

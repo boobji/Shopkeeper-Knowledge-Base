@@ -3,7 +3,7 @@ import os
 import logging
 from typing import List, Dict, Any
 from datetime import datetime
-from pymongo import MongoClient, ASCENDING, DESCENDING
+from pymongo import MongoClient, DESCENDING
 from bson import ObjectId
 from dotenv import load_dotenv
 
@@ -14,7 +14,7 @@ class HistoryMongoTool:
     MongoDB 历史对话记录读写工具 (原生 PyMongo 实现)
     并增加了转换为 LangChain 消息对象的功能
     """
-    
+
     def __init__(self):
         """
         初始化 MongoDB 连接
@@ -22,11 +22,11 @@ class HistoryMongoTool:
         try:
             self.mongo_url = os.getenv("MONGO_URL")
             self.db_name = os.getenv("MONGO_DB_NAME")
-            
+
             self.client = MongoClient(self.mongo_url)
             self.db = self.client[self.db_name]
             self.chat_message = self.db["chat_message"]
-            
+
             # 创建索引以加速查询
             self.chat_message.create_index([("session_id", 1), ("ts", -1)])
 

@@ -1,6 +1,5 @@
 """kg_search_node 中纯解析/清洗函数的单测"""
 
-import pytest
 
 from knowledge.processor.query_process.nodes.kg_search_node import (
     _build_item_entity_pairs,

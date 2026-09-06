@@ -1,4 +1,7 @@
-import json, time, re, logging
+import json
+import time
+import re
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from json import JSONDecodeError
@@ -345,7 +348,7 @@ class _MilvusEntityWriter:
         return records
 
 
-class KnowLedgeGraphNode(BaseNode):
+class KnowledgeGraphNode(BaseNode):
     name = "knowledge_graph_node"
 
     def __init__(self, config: Optional[ImportConfig] = None):
@@ -485,7 +488,7 @@ class KnowLedgeGraphNode(BaseNode):
         # 1. 获取LLM客户端
         llm_client = get_llm_client()
         if llm_client is None:
-            raise ValueError(f"LLM客户端初始化失败")
+            raise ValueError("LLM客户端初始化失败")
 
         MAX_COUNT = 3
         last_error = None
@@ -537,7 +540,7 @@ class KnowLedgeGraphNode(BaseNode):
 
         # 1. 判断
         if not llm_response:
-            raise ValueError(f"LLM提取chunk的图谱信息不存在")
+            raise ValueError("LLM提取chunk的图谱信息不存在")
 
         # 2. 清洗json代码块的围栏
         # 2.1 前面的7个非法字符踢掉```json
@@ -783,37 +786,3 @@ class KnowLedgeGraphNode(BaseNode):
                     msg = f"切片 {chunk_id} 处理失败: {e}"
                     stats.errors.append(msg)
                     self.logger.error(msg)
-
-
-def test_kg_extraction():
-    """测试：模拟单个切片，跑通 LLM → 解析 → 清洗全流程。"""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
-
-    mock_state = {
-        "item_name": "测试万用表",
-        "chunks": [
-            {
-                "content": """# 电池安装
-                    警告: 为防触电, 打开电池后盖前后，请勿操作仪表并把表笔与电源断开。
-                    1. 把表笔与仪表断开。
-                    2. 用螺丝刀拧开电池后盖上的螺母。
-                    3. 正确安装电池，正负极应一致。
-                    4. 盖上电池后盖并拧紧螺丝钉。
-                    警告: 为防触电,在电池后盖安装和固定之前，请勿操作仪表。
-                    注意: 若仪表出现工作不正常，请检测保险丝和电池是否完好以及是否放在正确的位置。""",
-                "chunk_id": "18438591111",
-                "item_name": "测试万用表",
-            }
-        ],
-    }
-
-    knowledge_graph_node = KnowLedgeGraphNode()
-
-    knowledge_graph_node.process(mock_state)
-
-
-if __name__ == "__main__":
-    test_kg_extraction()

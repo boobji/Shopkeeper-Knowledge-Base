@@ -1,9 +1,6 @@
 from langgraph.graph import StateGraph, END
-import json
 
-from knowledge.processor.import_process.base import setup_logging
-from knowledge.processor.import_process.nodes import md_img_node
-from knowledge.processor.import_process.state import ImportGraphState, create_default_state
+from knowledge.processor.import_process.state import ImportGraphState
 from knowledge.processor.import_process.nodes.pdf_to_md_node import PdfToMdNode
 from knowledge.processor.import_process.nodes.entry_node import EntryNode
 from knowledge.processor.import_process.nodes.md_img_node import MarkDownImgNode
@@ -11,7 +8,7 @@ from knowledge.processor.import_process.nodes.document_split_node import Documen
 from knowledge.processor.import_process.nodes.item_name_recognition_node import ItemNameRecognitionNode
 from knowledge.processor.import_process.nodes.bge_embedding_chunks_node import BgeEmbeddingChunksNode
 from knowledge.processor.import_process.nodes.import_milvus_node import ImportMilvusNode
-from knowledge.processor.import_process.nodes.knowledge_graph_node import KnowLedgeGraphNode
+from knowledge.processor.import_process.nodes.knowledge_graph_node import KnowledgeGraphNode
 
 
 def import_router(state: ImportGraphState):
@@ -30,11 +27,11 @@ def create_import_graph() -> StateGraph:
     """
 
     # 1.定义状态图
-    graph_pineline = StateGraph(ImportGraphState)  # type:ignore
+    graph_pipeline = StateGraph(ImportGraphState)  # type:ignore
 
     # 2.定义节点(入口、结束节点、自己需要添加的)
     # 2.1定义入口节点
-    graph_pineline.set_entry_point('entry_node')
+    graph_pipeline.set_entry_point('entry_node')
 
     # 2.2添加剩下的节点
     nodes = {
@@ -45,16 +42,16 @@ def create_import_graph() -> StateGraph:
         'item_name_recognition_node': ItemNameRecognitionNode(),
         'bge_emdedding_node': BgeEmbeddingChunksNode(),
         'import_milvus_node': ImportMilvusNode(),
-        'knowledge_graph_node': KnowLedgeGraphNode(),
+        'knowledge_graph_node': KnowledgeGraphNode(),
     }
     for key, value in nodes.items():
-        graph_pineline.add_node(key, value)
+        graph_pipeline.add_node(key, value)
 
     # 3.定义边(顺序边、条件边)
     # source: 路由开始节点
     # path: 路由函数
     # path_map: 路由函数的映射
-    graph_pineline.add_conditional_edges('entry_node',
+    graph_pipeline.add_conditional_edges('entry_node',
                                          import_router,
                                          {
                                              'md_img_node': 'md_img_node',
@@ -62,48 +59,16 @@ def create_import_graph() -> StateGraph:
                                              END: END
                                          }
                                          )
-    graph_pineline.add_edge('pdf_to_md_node', 'md_img_node')
-    graph_pineline.add_edge('md_img_node', 'document_split_node')
-    graph_pineline.add_edge('document_split_node', 'item_name_recognition_node')
-    graph_pineline.add_edge('item_name_recognition_node', 'bge_emdedding_node')
-    graph_pineline.add_edge('bge_emdedding_node', 'import_milvus_node')
-    graph_pineline.add_edge('import_milvus_node', 'knowledge_graph_node')
-    graph_pineline.add_edge('knowledge_graph_node', END)
+    graph_pipeline.add_edge('pdf_to_md_node', 'md_img_node')
+    graph_pipeline.add_edge('md_img_node', 'document_split_node')
+    graph_pipeline.add_edge('document_split_node', 'item_name_recognition_node')
+    graph_pipeline.add_edge('item_name_recognition_node', 'bge_emdedding_node')
+    graph_pipeline.add_edge('bge_emdedding_node', 'import_milvus_node')
+    graph_pipeline.add_edge('import_milvus_node', 'knowledge_graph_node')
+    graph_pipeline.add_edge('knowledge_graph_node', END)
 
     # 4.编译(编排)
-    return graph_pineline.compile()
+    return graph_pipeline.compile()
 
 
-kb_import__graph_app = create_import_graph()
-
-
-# 测试使用
-def run_import_graph(import_file_path: str, file_dir: str):
-    # 1.构建state
-    state = {
-        'import_file_path': import_file_path,
-        'file_dir': file_dir,
-
-    }
-    init_state = create_default_state(**state)
-
-    # 2.调用stream(用流式获取每一个节点的处理情况:event事件[节点名字 节点处理后的状态]
-    final_state = None
-    for event in kb_import__graph_app.stream(init_state):
-        for node_name, state in event.items():
-            print(f'运行节点的：{node_name}')
-            final_state = state
-    return final_state
-
-
-if __name__ == '__main__':
-    setup_logging()
-    import_file_path = r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir\万用表RS-12的使用.pdf'
-    file_dir = r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir'
-    # 1.测试编排流程
-    final_state = run_import_graph(import_file_path=import_file_path, file_dir=file_dir)
-    print(json.dumps(final_state, ensure_ascii=False, indent=4))
-    # 2.打印图结构(ASCII可视化)
-    print('-' * 50)
-    print("图结构:")
-    kb_import__graph_app.get_graph().print_ascii()
+import_graph_app = create_import_graph()

@@ -7,9 +7,9 @@ from typing import Sequence, List, Any, Dict, Optional
 from dataclasses import dataclass
 from pymilvus import DataType, MilvusClient
 from pymilvus.orm.schema import CollectionSchema
-from knowledge.processor.import_process.base import BaseNode, setup_logging, T
+from knowledge.processor.import_process.base import BaseNode, setup_logging
 from knowledge.processor.import_process.state import ImportGraphState
-from knowledge.processor.import_process.exceptions import ValidationError, EmbeddingError
+from knowledge.processor.import_process.exceptions import ValidationError
 from knowledge.processor.import_process.config import get_config
 from knowledge.utils.milvus_util import get_milvus_client
 
@@ -91,7 +91,7 @@ class _MilvusSchemaBuilder:
 
             schema.add_field(**kwargs)
 
-        logger.info(f"构建约束(schema)完成...")
+        logger.info("构建约束(schema)完成...")
         # 5. 返回
         return schema
 
@@ -271,7 +271,3 @@ def _cli_main() -> None:
         json.dump(result_state, fh, ensure_ascii=False, indent=4)
 
     logger.info(f"备份临时文件{output_path}成功")
-
-
-if __name__ == "__main__":
-    _cli_main()

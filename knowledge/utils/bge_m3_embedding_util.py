@@ -1,13 +1,13 @@
 from pymilvus.model.hybrid import BGEM3EmbeddingFunction
 from typing import Optional, List
-import os, logging
+import os
+import logging
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 from pathlib import Path
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
 
 _ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=_ENV_FILE, override=True)
@@ -30,7 +30,7 @@ def get_bge_m3_embedding_model():
             device=device,
             use_fp16=use_fp16
         )
-    except Exception as e:
+    except Exception:
         return None
 
     return bge_m3_ef
@@ -77,7 +77,7 @@ def generate_hybrid_embeddings(embedding_model: BGEM3EmbeddingFunction, embeddin
             "dense": [den.tolist() for den in embedding_result["dense"]],
             "sparse": processed_sparse_result
         }
-    except Exception as e:
+    except Exception:
         return None
 
 

@@ -1,5 +1,6 @@
 import json
-import os, logging
+import os
+import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -49,7 +50,7 @@ def get_llm_client(model_name: str = None, temperature: float = 0.0, response_fo
         cache_llm_client[cache_key] = client
         return client
     except Exception as e:
-        logger.error(f'LLM的客户端创建失败', {str(e)})
+        logger.error('LLM的客户端创建失败', {str(e)})
 
 if __name__ == "__main__":
     llm_client = get_llm_client()

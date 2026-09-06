@@ -10,7 +10,7 @@ import logging
 from openai import OpenAI
 
 from knowledge.utils.minio_util import get_minio_client
-from knowledge.processor.import_process.base import (BaseNode,setup_logging)
+from knowledge.processor.import_process.base import (BaseNode)
 from knowledge.processor.import_process.exceptions import ValidationError, FileProcessingError, \
     ImageProcessingError
 from knowledge.processor.import_process.state import ImportGraphState
@@ -359,7 +359,7 @@ class MarkDownImgNode(BaseNode):
         try:
             with open(img_path, 'rb') as f:
                 local_img_content = base64.b64encode(f.read()).decode('utf-8') # 将图片转为字符串
-        except Exception as e:
+        except Exception:
             return '暂无图片'
 
         # 4.发送请求
@@ -399,9 +399,9 @@ class MarkDownImgNode(BaseNode):
         """
         上传图片替换md文件中的图片url和摘要
         Args:
-            md_content: 
-            images_summaries: 
-            target_images_context: 
+            md_content:
+            images_summaries:
+            target_images_context:
 
         Returns:
 
@@ -411,7 +411,7 @@ class MarkDownImgNode(BaseNode):
         # 1.创建客户端
         minio_client = get_minio_client()
         if minio_client is None:
-            self.logger.warning(f'无法将本地文件上传')
+            self.logger.warning('无法将本地文件上传')
 
         # 2.遍历图片信息列表
         for img_name, img_path, _ in target_images_context:
@@ -426,7 +426,7 @@ class MarkDownImgNode(BaseNode):
                 remote_url = config.get_minio_base_url() + '/' + config.minio_bucket + '/' + object_name
                 self.logger.info(f'{img_name} 上传成功')
                 remote_urls[img_name] = remote_url
-            except Exception as e:
+            except Exception:
                 self.logger.warning(f'{img_name}上传失败')
                 remote_urls[img_name] = 'http://minio_mock/' + document_name  + '/' + img_name
         self.logger.info(f'成功上传{len(remote_urls)}张图片')
@@ -477,13 +477,3 @@ class MarkDownImgNode(BaseNode):
             raise ImageProcessingError(f"文件写入失败: {e}", node_name=self.name)
 
         return str(new_file_path)
-
-if __name__ == "__main__":
-    setup_logging()
-    img_md_node = MarkDownImgNode()
-
-    state = {
-        'md_path':r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir\万用表RS-12的使用\auto\万用表RS-12的使用.md'
-    }
-
-    img_md_node.process(state)

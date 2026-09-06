@@ -1,6 +1,6 @@
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List
 from knowledge.processor.query_process.state import QueryGraphState
-from knowledge.processor.query_process.base import BaseNode, setup_logging, T
+from knowledge.processor.query_process.base import BaseNode
 from knowledge.utils.bge_rerank_util import get_reranker_model
 
 """
@@ -8,7 +8,7 @@ from knowledge.utils.bge_rerank_util import get_reranker_model
    ----Hyde检索(混合策略检索：WeightReranker:归一化)（distance:分数【0,1】）
    ----kg检索(自定义weight:种子节点权重固定2.0,邻居节点权重固定1.0)（sum(weight)分数【1.0,+∞】）
    ----mcp检索(没打分)****
-   ----rrf(【不同路设置不同的权重：选择性】多路检索融合打分排序 打分利用RRF公式，sorted降序排序） 
+   ----rrf(【不同路设置不同的权重：选择性】多路检索融合打分排序 打分利用RRF公式，sorted降序排序）
    ----rerank(重新进行精排打分：不用管，三方做好了)
 """
 
@@ -173,48 +173,3 @@ class RerankNode(BaseNode):
         except Exception as e:
             self.logger.error(f"Rerank重排序失败:{str(e)}")
             return [{**merged_multi_docs, "score": None}]
-
-
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv()
-    setup_logging()
-
-    print("=" * 60)
-    print("开始测试: 重排序节点 (RerankNode)")
-    print("=" * 60)
-
-    mock_state = {
-        "rewritten_query": "怎么测这块主板的短路问题？",
-        "rrf_chunks": [
-            {"chunk_id": "local_1", "title": "主板维修手册",
-             "content": "主板短路通常表现为通电后风扇转一下就停，可以使用万用表的蜂鸣档测量。"},
-            {"chunk_id": "local_2", "title": "闲聊",
-             "content": "今天中午去吃猪脚饭吧，这块主板外观很漂亮。"},
-        ],
-        "web_search_docs": [
-            {"url": "https://example.com/repair", "title": "短路查修指南",
-             "snippet": "主板通电前先打各主供电电感的对地阻值，阻值偏低就是短路。"},
-            {"url": "https://example.com/news", "title": "科技新闻",
-             "snippet": "苹果发布新款手机，A系列芯片性能提升20%。"},
-        ],
-    }
-
-    print("【输入状态】:")
-    print(f"  查询: {mock_state['rewritten_query']}")
-    print(f"  本地文档: {len(mock_state['rrf_chunks'])} 篇")
-    print(f"  网络文档: {len(mock_state['web_search_docs'])} 篇")
-    print("-" * 60)
-
-    node = RerankNode()
-    result = node.process(mock_state)
-
-    print("\n【重排序结果】:")
-    for i, doc in enumerate(result["reranked_docs"], 1):
-        score = doc.get('score')
-        score_str = f"{score:.4f}" if score is not None else "N/A"
-        print(f"[{i}] score={score_str} | {doc['source']:5} | {doc['content'][:50]}...")
-
-    print("-" * 60)
-    print("测试完成")

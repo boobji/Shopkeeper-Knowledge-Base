@@ -1,7 +1,6 @@
-import json
 from pathlib import Path
 
-from knowledge.processor.import_process.base import BaseNode,setup_logging
+from knowledge.processor.import_process.base import BaseNode
 from knowledge.processor.import_process.exceptions import ValidationError
 from knowledge.processor.import_process.state import ImportGraphState
 
@@ -55,39 +54,3 @@ class EntryNode(BaseNode):
 
         # 7.返回state
         return state
-
-if __name__ == '__main__':
-    # pdf_path = r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir\万用表RS-12的使用.pdf'
-    # 方式一：直接实例该节点对象 调用process方法
-    # setup_logging()
-    # # 1.构建节点需要的state
-    # test_entry_state = {
-    #     'file_dir': r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir',
-    #     'import_file_path': r'D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir\万用表RS-12的使用.pdf'
-    # }
-    #
-    # # 2.实例EntryNode节点
-    # entry_node = EntryNode()
-    #
-    # # 3.调用process方法
-    # processed_state = entry_node.process(test_entry_state)
-    #
-    # # 序列化打印
-    # print(json.dumps(processed_state, ensure_ascii=False, indent=4))
-
-    # 方式二：直接实例该节点对象 调用process方法
-    setup_logging()
-    # 1.构建节点需要的state
-    test_entry_state = {
-        'file_dir': r'D:\Develop\Shopkeeper Knowledge Base\knowledge\processor\import_process\import_temp_dir',
-        'import_file_path': r'D:\Develop\Shopkeeper Knowledge Base\knowledge\processor\import_process\import_temp_dir\万用表RS-12的使用.pdf'
-    }
-
-    # 2.实例EntryNode节点
-    entry_node = EntryNode()
-
-    # 3.调用process方法
-    processed_state = entry_node(test_entry_state)
-
-    # 序列化打印
-    print(json.dumps(processed_state, ensure_ascii=False, indent=4))

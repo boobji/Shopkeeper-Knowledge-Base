@@ -24,7 +24,7 @@ def get_minio_client():
         else:
             logging.info(f"桶{bucket_name}已存在")
         return client
-    except S3Error as exc:
+    except S3Error:
         logging.error('客户端创建失败')
         return None
 

@@ -1,9 +1,7 @@
-import os, json
 from typing import Dict, List, Any
-from pathlib import Path
-from knowledge.processor.import_process.base import BaseNode, setup_logging
+from knowledge.processor.import_process.base import BaseNode
 from knowledge.processor.import_process.state import ImportGraphState
-from knowledge.processor.import_process.exceptions import ValidationError, EmbeddingError
+from knowledge.processor.import_process.exceptions import ValidationError
 from knowledge.processor.import_process.config import get_config
 from knowledge.utils.bge_m3_embedding_util import get_bge_m3_embedding_model
 
@@ -68,7 +66,7 @@ class BgeEmbeddingChunksNode(BaseNode):
             embedding_result = bge_m3_model.encode_documents(documents=embedding_contents)
 
             if not embedding_result:
-                self.logger.warning(f"嵌入后的结果不存在...")
+                self.logger.warning("嵌入后的结果不存在...")
                 return batch
         except Exception as e:
             self.logger.warning(f"嵌入向量嵌入失败...{str(e)}")
@@ -116,42 +114,8 @@ class BgeEmbeddingChunksNode(BaseNode):
 
         # 2.校验chunks/校验item_name也可以(其实不用)因为有安全边界的设置
         if not chunks or not isinstance(chunks, list):
-            raise ValidationError(f"chunks为空或者无效", self.name)
+            raise ValidationError("chunks为空或者无效", self.name)
 
         # 3. 返回chunks
         self.logger.info(f"嵌入的块数：{len(chunks)}")
         return chunks, config
-
-
-if __name__ == '__main__':
-    setup_logging()
-
-    base_temp_dir = Path(
-        r"D:\Develop\Shopkeeper_Knowledge_Base\knowledge\processor\import_process\import_temp_dir\万用表RS-12的使用\auto")
-
-    input_path = base_temp_dir / "chunks_item.json"
-    output_path = base_temp_dir / "chunks_vector.json"
-
-    # 1. 读取上游状态
-    if not input_path.exists():
-        print(f" 找不到输入文件: {input_path}")
-
-    with open(input_path, "r", encoding="utf-8") as f:
-        content = json.load(f)
-
-    # 2. 构建模拟的图状态 (Graph State)
-    # 注意：chunks_item.json 存的是完整 state 字典（含 file_title/chunks/item_name），
-    # chunks 列表在 content['chunks'] 里，不能直接把整个 content 当 chunks
-    state = {
-        "chunks": content["chunks"]
-    }
-
-    # 3. 触发节点执行
-    node_bge_embedding = BgeEmbeddingChunksNode()
-    proceed_result = node_bge_embedding.process(state)
-
-    # 4. 结果落盘
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(proceed_result, f, ensure_ascii=False, indent=4)
-
-    print(f" 向量生成测试完成！结果已成功备份至:\n{output_path}")

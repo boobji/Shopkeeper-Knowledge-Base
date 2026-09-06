@@ -60,7 +60,7 @@ class ItemNameAligner():
         # 3. 获取嵌入模型
         embedding_model = get_bge_m3_embedding_model()
         if embedding_model is None:
-            logger.error(f"获取嵌入模型失败")
+            logger.error("获取嵌入模型失败")
 
             return search_results
 
@@ -219,7 +219,7 @@ class ItemNameExtractor:
         """
         LLM根据用户原始问题提取商品名
         Args:
-            original_query: 
+            original_query:
 
         Returns:
 
@@ -346,21 +346,3 @@ class ItemNameConfirmNode(BaseNode):
                                f"您是在询问以下产品吗：{'、'.join(options)}？")
         else:
             state['answer'] = "抱歉，我无法识别您询问的具体产品名称，请提供更准确的产品名称或型号。"
-
-
-if __name__ == "__main__":
-
-    test_state: QueryGraphState = {
-        # "original_query": "你们店里那款苏伯尔RS-12数字万用表怎么测电压？"
-        # "original_query": "你们店里那款RS-12 数字万用表怎么测试电阻？"
-        "original_query": "华为擎云W515操作环境支持哪些？以及华为擎云L420 用户手册 中包含操作环境嘛？"
-        # "original_query": "RS-12 数字万用表怎么测试电阻？以及华为擎云L420 用户手册 中包含操作环境嘛？"
-    }
-    print(f"输入: {json.dumps(test_state, ensure_ascii=False, indent=2)}\n")
-
-    node_item_name_confirm = ItemNameConfirmNode()
-    result = node_item_name_confirm.process(test_state)
-    print(f"确认商品: {result.get('item_names')}")
-    print(f"改写查询: {result.get('rewritten_query')}")
-    if result.get("answer"):
-        print(f"拦截回复: {result.get('answer')}")

@@ -11,7 +11,9 @@ node_query_kg — 知识图谱查询节点。
 ─────────────────────────────────────────────────────────
   node_query_kg()     LangGraph 节点入口函数（薄包装）
 """
-import logging, re, json
+import logging
+import re
+import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,7 +22,7 @@ from typing import List, Dict, Any, Tuple, Union
 from pymilvus import MilvusClient
 from langchain_core.messages import SystemMessage, HumanMessage
 from knowledge.processor.query_process.state import QueryGraphState
-from knowledge.processor.query_process.base import BaseNode, T
+from knowledge.processor.query_process.base import BaseNode
 from knowledge.processor.query_process.exceptions import StateFieldError
 from knowledge.utils.llm_client_util import get_llm_client
 from knowledge.utils.bge_m3_embedding_util import get_bge_m3_embedding_model, generate_hybrid_embeddings
@@ -71,11 +73,11 @@ MATCH (seed:Entity {name:$name,item_name:$item_name})-[r]-(nbr:Entity)
 
 WHERE type(r) <> 'MENTIONED_IN' AND nbr.item_name=$item_name
 
-RETURN 
+RETURN
   CASE WHEN startNode(r)=seed  THEN  seed.name  ELSE nbr.name END AS head,
   type(r) as rel,
   CASE WHEN  startNode(r)=seed  THEN nbr.name ELSE seed.name END AS tail
- 
+
 limit $limit
 """
 # 根据带权重的节点查询chunk_id
@@ -1034,25 +1036,3 @@ class KnowledgeGraphSearchNode(BaseNode):
             "kg_aligned_entities": aligned_entities_name,
             "kg_alignments": aligned_entities_info,
         }
-
-
-if __name__ == '__main__':
-    # 知识图的检索这一路主要是根据精确的实体名帮我查下一部分出来，但是应用不会只靠这一路查询
-    # 其它路（语义相似这一路会根据我的语义相似查询）
-    kg_search_node = KnowledgeGraphSearchNode()
-    state = {
-        # "rewritten_query": "RS-12数字万用表如何测量直流电压",    （没有查询到）
-        "rewritten_query": "RS-12数字万用表如何进行直流电压的测量",  # （没有查询到）
-        # "rewritten_query": "RS-12数字万用表如何打开背光灯键",
-        # "rewritten_query": "RS-12数字万用表更换电池需要注意什么",
-        # "rewritten_query": "RS-12数字万用表更换电池需要注意什么",   # 1.0
-        # "rewritten_query": "RS-12数字万用表如何测量电阻",  # 1.0  （没有查询到）
-        # "rewritten_query": "RS-12数字万用表如何进行电阻测量",  # 1.0
-        # "rewritten_query": "在RS-12 数字万用表中二极管的操作步骤是什么",
-        # "rewritten_query": "RS-12数字万",
-        # "item_names": ["RS-12数字万用表"]
-        "item_names": ["RS-12 数字万用表"]
-    }
-    result = kg_search_node.process(state)
-
-    print(result)

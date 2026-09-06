@@ -17,8 +17,10 @@ extend-exclude = [
 
 [tool.ruff.lint]
 # 基线阶段只开基础正确性检查，逐步收严（isort 等后续再开）
+# E402：历史代码为调整 .env 加载顺序把 import 放在 load_dotenv 之后，
+#       待 P2 统一配置加载后移除此豁免
 select = ["E", "F", "W"]
-ignore = ["E501"]
+ignore = ["E501", "E402"]
 
 [tool.mypy]
 python_version = "3.12"

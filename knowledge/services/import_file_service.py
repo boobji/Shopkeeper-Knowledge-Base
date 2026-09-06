@@ -11,7 +11,7 @@ from knowledge.core.paths import get_local_base_dir
 from knowledge.utils.minio_util import get_minio_client
 from knowledge.services.task_service import TaskService
 from knowledge.processor.import_process.state import ImportGraphState
-from knowledge.processor.import_process.main_graph import kb_import__graph_app
+from knowledge.processor.import_process.main_graph import import_graph_app
 
 
 class ImportFileService:
@@ -144,7 +144,7 @@ class ImportFileService:
             }
 
             # 3. 流式执行整个导入流水线
-            for event in kb_import__graph_app.stream(global_graph_init_status):
+            for event in import_graph_app.stream(global_graph_init_status):
                 for key, value in event.items():
                     print(f"[{task_id}] Completed Node: {key}")
 

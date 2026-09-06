@@ -1,4 +1,3 @@
-import json
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -116,58 +115,3 @@ class HyDeSearchNode(BaseNode):
         quoted = ", ".join(f'"{v}"' for v in validate_item_names)
         # filter = 'item_name in ["商品A", "商品B", "商品C"]'v   # 标量字段（动态字段）进行过滤
         return f" item_name in [{quoted}]"
-
-
-if __name__ == '__main__':
-
-    state = {
-        "rewritten_query": "万用表如何测量电阻",
-        "item_names": ["RS-12 数字万用表"]  # 对齐字段
-    }
-
-    vector_search = HyDeSearchNode()
-
-    result = vector_search.process(state)
-
-    for r in result.get('hyde_embedding_chunks'):
-        print(json.dumps(r, ensure_ascii=False, indent=2))
-
-if __name__ == "__main__":
-    from knowledge.processor.query_process.base import setup_logging
-    import json
-
-    setup_logging()
-
-    print("=" * 60)
-    print("开始测试: HyDE 检索节点 (HydeSearchNode)")
-    print("=" * 60)
-
-    mock_state = {
-        "rewritten_query": "RS-12 数字万用表如何测量直流电压？",
-        "item_names": ["RS-12 数字万用表"],
-    }
-
-    print("【输入状态】:")
-    print(f"  查询: {mock_state['rewritten_query']}")
-    print(f"  商品: {mock_state['item_names']}")
-    print("-" * 60)
-
-    node = HyDeSearchNode()
-    result = node.process(mock_state)
-
-    chunks = result.get("hyde_embedding_chunks", [])
-    print(f"\n【HyDE 检索结果】: {len(chunks)} 条")
-    for i, chunk in enumerate(chunks, 1):
-        entity = chunk.get("entity", {})
-        print(f"  [{i}] chunk_id={entity.get('chunk_id')} "
-              f"item_name={entity.get('item_name')} "
-              f"distance={chunk.get('distance', 'N/A')}")
-        content = entity.get("content", "")
-        print(f"      内容: {content[:80]}...")
-
-    hyde_doc = result.get("hyde_doc", "")
-    if hyde_doc:
-        print(f"\n【假设性文档】:\n{hyde_doc[:200]}...")
-
-    print("-" * 60)
-    print("测试完成")

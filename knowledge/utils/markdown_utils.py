@@ -34,10 +34,12 @@ class MarkdownTableLinearizer:
         html_content = match.group(0)
         soup = BeautifulSoup(html_content, "html.parser")
         table = soup.find("table")
-        if not table: return html_content
+        if not table:
+            return html_content
 
         rows = table.find_all("tr")
-        if not rows: return html_content
+        if not rows:
+            return html_content
 
         # 嗅探 HTML 中是否使用了标准的 <th> 表头标签
         has_th = len(table.find_all("th")) > 0
@@ -58,8 +60,10 @@ class MarkdownTableLinearizer:
                 text = cell.get_text(separator=" ", strip=True)
 
                 for r in range(row_idx, row_idx + rowspan):
-                    while len(grid) <= r: grid.append([])
-                    while len(grid[r]) < col_idx + colspan: grid[r].append(None)
+                    while len(grid) <= r:
+                        grid.append([])
+                    while len(grid[r]) < col_idx + colspan:
+                        grid[r].append(None)
                     for c in range(col_idx, col_idx + colspan):
                         grid[r][c] = text
                 col_idx += colspan
@@ -72,7 +76,8 @@ class MarkdownTableLinearizer:
         lines = md_text.split('\n')
         grid = []
         for line in lines:
-            if re.match(r'^[ \t]*\|[ \t\-|:]+\|[ \t]*$', line): continue
+            if re.match(r'^[ \t]*\|[ \t\-|:]+\|[ \t]*$', line):
+                continue
             cells = [cell.strip() for cell in line.strip('|').split('|')]
             grid.append(cells)
         # Markdown 表格天生自带表头结构

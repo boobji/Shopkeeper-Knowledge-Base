@@ -1,6 +1,6 @@
 """答案输出节点 —— 骨架版本（第一步）"""
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Tuple
 from knowledge.processor.query_process.base import BaseNode
 from knowledge.processor.query_process.state import QueryGraphState
 from knowledge.prompts.query.query_prompt import ANSWER_PROMPT

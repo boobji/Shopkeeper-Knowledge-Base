@@ -21,3 +21,22 @@ class ProcessError(Exception):
         if self.cause:
             parts.append(f"(原因: {self.cause})")
         return " ".join(parts)
+
+
+class StorageError(ProcessError):
+    """存储错误：数据库/对象存储操作失败。"""
+
+    def __init__(self, message: str, cause: Exception = None):
+        super().__init__(message, cause=cause)
+
+
+class MilvusError(StorageError):
+    """Milvus 向量数据库操作失败。"""
+
+
+class Neo4jError(StorageError):
+    """Neo4j 图数据库操作失败。"""
+
+
+class EmbeddingError(StorageError):
+    """嵌入模型调用失败。"""

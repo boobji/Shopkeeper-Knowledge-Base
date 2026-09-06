@@ -1,0 +1,8 @@
+{
+  "model": {
+    "main": {
+      "provider": "builtin:zai-start-plan",
+      "model": "GLM-5.3-Flash"
+    }
+  }
+}

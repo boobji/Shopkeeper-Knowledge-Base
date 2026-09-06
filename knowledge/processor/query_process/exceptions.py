@@ -4,7 +4,13 @@
 异常基类与消息格式在 core.exceptions.ProcessError 中统一定义。
 """
 
-from knowledge.core.exceptions import ProcessError
+from knowledge.core.exceptions import (  # noqa: F401 存储类错误两侧共用 core 的统一定义
+    EmbeddingError,
+    MilvusError,
+    Neo4jError,
+    ProcessError,
+    StorageError,
+)
 
 
 class QueryProcessError(ProcessError):
@@ -55,42 +61,10 @@ class SearchError(QueryProcessError):
     pass
 
 
-class EmbeddingError(QueryProcessError):
-    """向量化错误。
-
-    模型调用失败、向量生成异常时抛出。
-    """
-    pass
-
-
 class LLMError(QueryProcessError):
     """LLM 调用错误。
 
     API 调用失败、响应解析失败时抛出。
-    """
-    pass
-
-
-class StorageError(QueryProcessError):
-    """存储错误。
-
-    数据库操作失败时抛出。
-    """
-    pass
-
-
-class MilvusError(StorageError):
-    """Milvus 存储错误。
-
-    Milvus 向量数据库操作失败时抛出。
-    """
-    pass
-
-
-class Neo4jError(StorageError):
-    """Neo4j 存储错误。
-
-    Neo4j 图数据库操作失败时抛出。
     """
     pass
 

@@ -85,12 +85,14 @@ class MarkdownTableLinearizer:
 
     @classmethod
     def _grid_to_text(cls, grid: List[List[str]], is_md: bool, has_th: bool) -> str:
-        if not grid or not grid[0]: return ""
+        if not grid or not grid[0]:
+            return ""
 
         cols_count = max(len(r) for r in grid)
         # 补齐不规则行的列数，防越界
         for r in grid:
-            while len(r) < cols_count: r.append("")
+            while len(r) < cols_count:
+                r.append("")
 
         is_header_row = False
         if is_md or has_th:
@@ -117,7 +119,8 @@ class MarkdownTableLinearizer:
             headers = grid[0]
             for r in grid[1:]:
                 # 跳过完全空的数据行
-                if not any(r): continue
+                if not any(r):
+                    continue
 
                 subject = r[0] if r[0] else "未知项目"
                 subject_header = headers[0] if headers[0] else ""

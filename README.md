@@ -252,6 +252,22 @@ python eval/run_eval.py --self-test    # 无服务自检：只验证指标计算
 每次运行会在 `eval/reports/` 留下 Markdown 报告，逐条展示命中位次，方便定位 badcase。评测集格式见
 `eval/retrieval_eval_set.json`，新增商品文档后按同样格式追加用例即可。
 
+### 评测语料
+
+检索用例需要真实文档支撑，项目提供一键拉取脚本（[RealAppliance](https://github.com/gaoyz1235/RealAppliance)
+中的**中文版家电说明书 28 本**，覆盖空气炸锅 / 微波炉 / 咖啡机 / 电饭煲等 11 类，合计约 380 页）：
+
+```bash
+python scripts/fetch_eval_corpus.py            # 拉取到 eval/corpus/zh_manuals/
+python scripts/fetch_eval_corpus.py --limit 5  # 试跑：只下前 5 本
+```
+
+脚本内置断点续传、双通路自动回退（jsDelivr → GitHub API）、并发下载，并按上游
+**Git blob SHA1 逐文件校验完整性**，下载完生成 `manifest.csv` 清单。
+
+> 语料 PDF 版权归各设备厂商所有（上游仓库未提供开源许可证），因此**只本地使用、不入库**，
+> 详见 `eval/corpus/README.md`。评测集本身（问题与期望答案）为本项目自撰，可正常公开。
+
 ---
 
 ## 📁 项目结构

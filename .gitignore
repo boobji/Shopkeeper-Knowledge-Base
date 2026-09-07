@@ -31,6 +31,12 @@ knowledge/processor/import_process/import_temp_dir/
 **/temp_data/
 **/import_temp_dir/
 
+# ---------- 评测语料（版权敏感 + 体积大） ----------
+# 语料 PDF 版权归厂商所有，且上游仓库无开源许可证：只本地使用，不入库。
+# 需要时用 `python scripts/fetch_eval_corpus.py` 重新拉取（清单 manifest.csv 会一并生成）。
+eval/corpus/*
+!eval/corpus/README.md
+
 # ---------- 备份文件 ----------
 *_bak.py
 *.bak

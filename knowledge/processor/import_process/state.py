@@ -36,6 +36,10 @@ class ImportGraphState(TypedDict, total=False):
 
     is_pdf_read_enabled: bool  # 是否启用 PDF 读取
 
+    is_html_enabled: bool  # 是否启用 HTML 转换
+
+    is_docx_enabled: bool  # 是否启用 Word(docx) 转换
+
     # ==================== 路径信息 ====================
 
     import_file_path: str  # 导入文件路径
@@ -58,6 +62,10 @@ class ImportGraphState(TypedDict, total=False):
 
     chunks: List  # 文档切片列表
 
+    structure_stat: Dict  # 结构增强统计（P0-1：标题还原情况）
+
+    chunk_clean_stats: Dict  # 切片清洗统计（P0-2/P0-3：各类噪音剔除数量）
+
     images_context: List[Tuple[str, str, Tuple[str, str, str]]]  # 图片上下文列表，元素为 (img_name, img_path, (head_title, pre_context, post_context))
 
     images_summaries: Dict[str, str]  # 图片摘要映射，键为 img_name，值为 VLM 生成的中文标题
@@ -75,6 +83,10 @@ GRAPH_DEFAULT_STATE: ImportGraphState = {
 
     "is_md_read_enabled": False,
 
+    "is_html_enabled": False,
+
+    "is_docx_enabled": False,
+
     "file_dir": "",
 
     "import_file_path": "",
@@ -88,6 +100,10 @@ GRAPH_DEFAULT_STATE: ImportGraphState = {
     "md_content": "",
 
     "chunks": [],
+
+    "structure_stat": {},
+
+    "chunk_clean_stats": {},
 
     "images_context": [],
 

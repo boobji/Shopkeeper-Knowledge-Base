@@ -10,6 +10,10 @@ from knowledge.processor.import_process.exceptions import ValidationError
 from knowledge.processor.import_process.state import ImportGraphState
 from knowledge.processor.import_process.config import get_config
 from knowledge.utils.markdown_utils import MarkdownTableLinearizer
+from knowledge.domain.structure_aware import enhance_headings, estimate_hard_split_rate
+
+# 标题识别表达式（与 structure_aware 共用同一套口径）
+HEADING_RE = re.compile(r"^\s*(#{1,6})\s+(.+)")
 
 
 class DocumentSplitNode(BaseNode):
@@ -18,6 +22,10 @@ class DocumentSplitNode(BaseNode):
     def process(self, state: ImportGraphState) -> ImportGraphState:
         # 0.获取参数
         md_content, file_title, max_content_length, min_content_length = self._get_inputs(state)
+
+        # 0.5 结构增强（P0-1）：Markdown 标题缺失时，从 MinerU 中间产物还原层级
+        md_content, structure_stat = self._enhance_structure(state, md_content, file_title)
+        state['structure_stat'] = structure_stat
 
         # 1.根据标题切割
         sections = self._split_by_headings(md_content, file_title)
@@ -56,6 +64,37 @@ class DocumentSplitNode(BaseNode):
             raise ValidationError('切片长度校验失败')
 
         return md_content, file_title, config.max_content_length, config.min_content_length
+
+    def _enhance_structure(self, state: ImportGraphState, md_content: str,
+                           file_title: str) -> tuple:
+        """P0-1：多级降级的结构还原。
+
+        扫描件 OCR 后常丢失 `#` 标题，此时改用 MinerU 的 content_list.json
+        （含 text_level）还原层级。结构本来完好的文档不受任何影响。
+        """
+        config = get_config()
+        if not md_content:
+            return md_content, {"applied": False, "reason": "md_content 为空"}
+
+        if config.structure_aware_enabled:
+            hard_split_rate = estimate_hard_split_rate(md_content, file_title, HEADING_RE)
+            local_dir = state.get("file_dir", state.get("local_dir", ""))
+            enhanced, stat = enhance_headings(
+                md_content, local_dir, file_title,
+                enabled=True,
+                hard_split_rate=hard_split_rate,
+                threshold=config.structure_hard_split_threshold,
+            )
+            if stat.get("matched"):
+                self.logger.info(
+                    f"结构增强生效：硬切率 {hard_split_rate:.0%} -> 从 content_list 还原 "
+                    f"{stat['matched']}/{stat['headings']} 个标题"
+                )
+            else:
+                self.logger.info(f"结构增强未生效（{stat.get('reason')}），保持原切分逻辑")
+            return enhanced, stat
+
+        return md_content, {"applied": False, "reason": "未启用"}
 
     def _split_by_headings(self, md_content: str, file_title: str) -> List[dict]:
         """

@@ -30,6 +30,7 @@ from knowledge.prompts.upload.import_prompt import KNOWLEDGE_GRAPH_SYSTEM_PROMPT
 from knowledge.utils.milvus_util import get_milvus_client
 from knowledge.utils.neo4j_util import get_neo4j_driver
 from knowledge.utils.llm_client_util import get_llm_client
+from knowledge.utils.llm_call_logger import log_llm_call
 
 
 class KnowledgeGraphNode(BaseNode):
@@ -59,7 +60,9 @@ class KnowledgeGraphNode(BaseNode):
         # 5. 批量处理（串行版本）
         # self._process_all_chunks_v1(stats, validated_chunks, milvus_client, neo4j_driver)
         # 5. 批量处理（多线程版本）
-        self._process_chunks_concurrently(stats, validated_chunks, milvus_client, neo4j_driver)
+        self._process_chunks_concurrently(stats, validated_chunks, milvus_client, neo4j_driver,
+                                          task_id=state.get('task_id') or '',
+                                          task_dir=state.get('file_dir') or '')
 
         # 6. 简单的日志观察
         self.logger.info(stats.summary())
@@ -132,12 +135,14 @@ class KnowledgeGraphNode(BaseNode):
                               item_name: str,
                               content: str,
                               milvus_client: MilvusClient,
-                              neo4j_driver) -> Tuple[int, int]:
+                              neo4j_driver,
+                              task_id: str = "", task_dir: str = "") -> Tuple[int, int]:
 
         llm_start = time.time()
         thread_name = threading.current_thread().name  # 获取线程名
         # 1. 调用模型提取chunk的实体、关系
-        llm_response = self._extract_graph_with_retry(content)
+        llm_response = self._extract_graph_with_retry(content, task_id=task_id, task_dir=task_dir,
+                                                      chunk_id=chunk_id)
         llm_cost = time.time() - llm_start
 
         # 2. 解析并且清洗数据
@@ -170,7 +175,8 @@ class KnowledgeGraphNode(BaseNode):
 
         return len(final_entities), len(final_relations)
 
-    def _extract_graph_with_retry(self, content: str) -> str:
+    def _extract_graph_with_retry(self, content: str, task_id: str = "",
+                                  task_dir: str = "", chunk_id: str = "") -> str:
 
         # 1. 获取LLM客户端
         llm_client = get_llm_client()
@@ -183,22 +189,37 @@ class KnowledgeGraphNode(BaseNode):
         # 2.循环重试3次
         # TODO :将失败的异常原因给到模型
         for attempt in range(1, MAX_COUNT + 1):
+            messages = [
+                SystemMessage(content=KNOWLEDGE_GRAPH_SYSTEM_PROMPT),
+                HumanMessage(content=f"切片信息\n\n{content}")
+            ]
+            t0 = time.perf_counter()
             try:
                 # 2.1 调用模型
-                llm_response = llm_client.invoke([
-                    SystemMessage(content=KNOWLEDGE_GRAPH_SYSTEM_PROMPT),
-                    HumanMessage(content=f"切片信息\n\n{content}")
-                ])
+                llm_response = llm_client.invoke(messages)
                 # 2.2 获取内容
                 result = getattr(llm_response, 'content', '').strip()
 
-                # 2.3 有内容
+                # 2.3 留档本次调用（成功与"空响应"都记录，空响应往往提示词有问题）
+                log_llm_call('import_kg', messages=messages, response=llm_response,
+                             task_id=task_id, task_dir=task_dir,
+                             meta={'chunk_id': chunk_id, 'attempt': attempt,
+                                   'empty_response': not result},
+                             latency_ms=(time.perf_counter() - t0) * 1000)
+
+                # 2.4 有内容
                 if result:
                     return result
             except Exception as e:
                 last_error = e
 
-                # 2.4 控制重试间隔
+                # 2.5 失败同样留档
+                log_llm_call('import_kg', messages=messages,
+                             task_id=task_id, task_dir=task_dir,
+                             meta={'chunk_id': chunk_id, 'attempt': attempt},
+                             latency_ms=(time.perf_counter() - t0) * 1000, error=str(e))
+
+                # 2.6 控制重试间隔
                 if attempt < MAX_COUNT:
                     # 睡一会：间隔[固定间隔/指数退避]
                     delay = 0.5 * (2 ** (attempt - 1))
@@ -428,7 +449,8 @@ class KnowledgeGraphNode(BaseNode):
         return validated_chunks, global_item_name
 
     def _process_chunks_concurrently(self, stats: ProcessingStats, validated_chunks: List[Dict[str, Any]],
-                                     milvus_client: MilvusClient, neo4j_driver):
+                                     milvus_client: MilvusClient, neo4j_driver,
+                                     task_id: str = "", task_dir: str = ""):
         """
         多线程版本：
         多线程本质压榨CPU 和提高响应时间没有本质的关系
@@ -437,6 +459,8 @@ class KnowledgeGraphNode(BaseNode):
             validated_chunks:
             milvus_client:
             neo4j_driver:
+            task_id:      任务 ID（用于 LLM 调用留档）
+            task_dir:     任务目录（留档落到其下 llm_calls/）
         Returns:
 
         """
@@ -452,7 +476,8 @@ class KnowledgeGraphNode(BaseNode):
                 # 像线程池中提交任务 返回任务对象
                 future = pool.submit(
                     self._process_single_chunk,
-                    chunk_id, item_name, content, milvus_client, neo4j_driver
+                    chunk_id, item_name, content, milvus_client, neo4j_driver,
+                    task_id, task_dir
                 )
                 future_to_idx[future] = (i, chunk_id)
 

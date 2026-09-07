@@ -51,6 +51,53 @@ class ImportConfig:
     item_name_chunk_k: int = 3  # 商品名识别时使用的切片数量
     item_name_chunk_size: int = 2500  # 商品名识别时使用的切片内容的长度
 
+    # ==================== 结构感知分块（P0-1） ====================
+    # 背景：79% 的真实说明书 PDF 无文本层，靠 OCR 还原时 Markdown 的 # 标题
+    # 大量丢失，切块退化成按字数硬切。此开关启用后，标题稀疏时会改用 MinerU
+    # 中间产物 *_content_list.json（含 type / bbox / page_idx）还原章节层级。
+    structure_aware_enabled: bool = field(
+        default_factory=lambda: os.getenv("STRUCTURE_AWARE_ENABLED", "1").strip().lower()
+        in ("1", "true", "yes", "on")
+    )
+    structure_hard_split_threshold: float = field(
+        default_factory=lambda: float(os.getenv("STRUCTURE_HARD_SPLIT_THRESHOLD", "0.30"))
+    )  # 硬切率超过该值判定为"结构缺失"，启用 content_list 补结构
+
+    # ==================== 切片清洗（P0-2 / P0-3） ====================
+    chunk_clean_enabled: bool = field(
+        default_factory=lambda: os.getenv("CHUNK_CLEAN_ENABLED", "1").strip().lower()
+        in ("1", "true", "yes", "on")
+    )
+    # 中文占非空字符的比例低于此值 → 标 lang=mixed 降权（规格表符号多时会误伤，故可配）
+    chunk_min_zh_ratio: float = field(
+        default_factory=lambda: float(os.getenv("CHUNK_MIN_ZH_RATIO", "0.20"))
+    )
+    # 中文占比低于此值 → 判定外文页/纯符号页，直接丢弃
+    chunk_drop_zh_ratio: float = field(
+        default_factory=lambda: float(os.getenv("CHUNK_DROP_ZH_RATIO", "0.05"))
+    )
+    chunk_drop_toc: bool = field(
+        default_factory=lambda: os.getenv("CHUNK_DROP_TOC", "1").strip().lower()
+        in ("1", "true", "yes", "on")
+    )  # 丢弃目录/索引页（连续点线引导符）
+    chunk_min_keep_length: int = field(
+        default_factory=lambda: int(os.getenv("CHUNK_MIN_KEEP_LENGTH", "20"))
+    )  # 清洗后低于该长度的片段直接丢弃
+    # 通用安全声明等样板段：跨文档重复出现，会稀释检索，需去重降权
+    chunk_boilerplate_enabled: bool = field(
+        default_factory=lambda: os.getenv("CHUNK_BOILERPLATE_ENABLED", "1").strip().lower()
+        in ("1", "true", "yes", "on")
+    )
+    chunk_boilerplate_threshold: float = field(
+        default_factory=lambda: float(os.getenv("CHUNK_BOILERPLATE_THRESHOLD", "0.60"))
+    )  # n-gram Jaccard 相似度阈值，超过即判定为同一段样板文字
+    chunk_boilerplate_min_docs: int = field(
+        default_factory=lambda: int(os.getenv("CHUNK_BOILERPLATE_MIN_DOCS", "2"))
+    )  # 至少在多少个不同文档中出现过才认定为通用样板段
+    boilerplate_store_path: str = field(
+        default_factory=lambda: os.getenv("BOILERPLATE_STORE_PATH", "")
+    )  # 样板段指纹库路径，留空则落到 knowledge/temp_data/boilerplate_fingerprints.json
+
     image_extensions: Set[str] = field(
         default_factory=lambda: {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
     )

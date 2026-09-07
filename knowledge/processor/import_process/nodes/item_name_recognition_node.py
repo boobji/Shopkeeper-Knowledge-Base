@@ -1,3 +1,4 @@
+import re
 from typing import Tuple, List, Dict, Any, Optional
 
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -9,6 +10,7 @@ from knowledge.processor.import_process.state import ImportGraphState
 from knowledge.processor.import_process.config import get_config
 from knowledge.utils.bge_m3_embedding_util import get_bge_m3_embedding_model
 from knowledge.utils.llm_client_util import get_llm_client
+from knowledge.utils.llm_call_logger import log_llm_call
 from knowledge.domain.filters import normalize_item_name
 from knowledge.prompts.item_name_prompt import ITEM_NAME_SYSTEM_PROMPT, \
     ITEM_NAME_USER_PROMPT_TEMPLATE
@@ -19,14 +21,20 @@ class ItemNameRecognitionNode(BaseNode):
 
     name = "item_name_recognition_node"
 
+    # 型号串：形如 RS-12 / UT890D / S7-1200 / B520 / KF-21B18
+    MODEL_CODE_RE = re.compile(r"[A-Za-z]{1,}[\- ]?\d{2,}[A-Za-z0-9\-]*")
+
     def process(self, state: ImportGraphState,) -> ImportGraphState:
         # 1.参数校验
         chunks, file_title, config = self._validate_inputs(state)
-        # 2.构建LLM上下文
-        item_name_context = self._prepare_item_name_context(chunks, config)
+        # 2.构建LLM上下文（结构优先采样，而非简单取前 K 块）
+        item_name_context = self._prepare_item_name_context(chunks, config, file_title)
 
         # 调用LLM
-        item_name = self._recognition_item_name_by_llm(file_title, item_name_context)
+        item_name = self._recognition_item_name_by_llm(
+            file_title, item_name_context,
+            task_id=state.get('task_id') or '', task_dir=state.get('file_dir') or '',
+        )
 
         # 3.嵌入商品名
         dense_vector, sparse_vector = self._embedding_item_name(item_name)
@@ -58,30 +66,64 @@ class ItemNameRecognitionNode(BaseNode):
         # 3.返回
         return chunks, file_title, config
 
-    def _prepare_item_name_context(self, chunks: Optional[List[Dict[str, Any]]], config):
-        self.log_step('step2','构建商品名提取的上下文')
-        result = []
-        total = 0
-        for index, chunk in enumerate(chunks[:config.item_name_chunk_k]):
-            # 1.判断chunk的类型
-            if not isinstance(chunk,dict):
+    def _prepare_item_name_context(self, chunks: Optional[List[Dict[str, Any]]], config,
+                                   file_title: str = "") -> str:
+        """构建商品名提取上下文 —— 结构优先采样。
+
+        旧实现固定取"前 K 个切片"，而说明书的前几页恰恰是封面、目录、通用安全声明
+        和厂商服务承诺（实测：海尔微波炉抽取时被"1+5 成套服务"干扰，扫描件首块常常
+        是空白 OCR 结果）。这里改为按"含金量"挑片段：
+
+            命中型号串 +2 / 落在真实章节下 +1 / 中文主体 +1 / 位置靠前略加权
+
+        挑出来后再按原始顺序拼接，保持文档阅读顺序，避免 LLM 看到乱序内容。
+        """
+        self.log_step('step2', '构建商品名提取的上下文')
+        if not chunks:
+            return ''
+
+        # 候选池放宽到 3 倍 K（或至少 15 块），避免前几块被占满时无米下锅
+        pool_size = max(config.item_name_chunk_k * 3, 15)
+        candidates = []
+        for index, chunk in enumerate(chunks[:pool_size]):
+            if not isinstance(chunk, dict):
                 continue
+            content = (chunk.get('content') or '').strip()
+            if len(content) < 10:
+                continue  # 空壳 OCR 片段
 
-            # 2.提取
-            content = chunk.get('content')
+            title = (chunk.get('title') or '').strip()
+            score = 0.0
+            if self.MODEL_CODE_RE.search(content):
+                score += 2.0                      # 型号串是最强的商品名信号
+            if title and title != file_title:
+                score += 1.0                      # 落在真实章节下的片段更有信息量
+            if chunk.get('lang') != 'mixed':
+                score += 1.0                      # 排除多语言/符号页，boilerplate 已由清洗节点剔除
+            score -= index * 0.1                  # 同分时偏向前文
+            candidates.append((score, index, content))
+
+        if not candidates:  # 极端情况：全部不可用，退回原逻辑
+            candidates = [(0.0, i, (c.get('content') or '').strip())
+                          for i, c in enumerate(chunks[:config.item_name_chunk_k])
+                          if isinstance(c, dict) and (c.get('content') or '').strip()]
+
+        # 取分数最高的 K 个，再按文档顺序还原
+        candidates.sort(key=lambda x: (-x[0], x[1]))
+        picked = sorted(candidates[:config.item_name_chunk_k], key=lambda x: x[1])
+
+        result, total = [], 0
+        for score, index, content in picked:
             spices = f'[切片]-{index + 1}-{content}'
-
-            # 3.计算长度
             total += len(spices)
             result.append(spices)
-
-            # 4.判断收集到的长度是否超过阈值
             if total > config.item_name_chunk_size:
                 break
 
         return '\n\n'.join(result)[:config.item_name_chunk_size]
 
-    def _recognition_item_name_by_llm(self, file_title: str, item_name_context: str) -> str:
+    def _recognition_item_name_by_llm(self, file_title: str, item_name_context: str,
+                                      task_id: str = '', task_dir: str = '') -> str:
         self.log_step('step3', 'LLM识别商品名')
         # 1.实例化LLM客户端
         # 有意降级：导入场景下 LLM 不可用时回退文件标题，而不是让整个导入失败
@@ -98,14 +140,18 @@ class ItemNameRecognitionNode(BaseNode):
         # prompt_template.invoke()
 
         # 3.调用模型（# str[] # promptvalue)
+        messages = [SystemMessage(content=ITEM_NAME_SYSTEM_PROMPT), HumanMessage(content=prompt)]
+        t0 = time.perf_counter()
         try:
-            llm_response = llm_client.invoke([
-                SystemMessage(content=ITEM_NAME_SYSTEM_PROMPT),
-                HumanMessage(content=prompt)
-            ])
+            llm_response = llm_client.invoke(messages)
 
             # 获取模型输出内容
             item_name = getattr(llm_response, 'content', '').strip()
+
+            # 3.1 留档本次调用（完整提示词 + 响应）
+            log_llm_call('import_item_name', messages=messages, response=llm_response,
+                         task_id=task_id, task_dir=task_dir,
+                         latency_ms=(time.perf_counter() - t0) * 1000)
 
             # 判断
             if not item_name or item_name.upper() == 'UNKNOWN':
@@ -113,7 +159,10 @@ class ItemNameRecognitionNode(BaseNode):
                 return file_title
             self.logger.info(f'提取到的商品名:{item_name}')
             return item_name
-        except Exception:
+        except Exception as e:
+            # 3.2 失败同样留档，便于排查是提示词问题还是服务问题
+            log_llm_call('import_item_name', messages=messages, task_id=task_id, task_dir=task_dir,
+                         latency_ms=(time.perf_counter() - t0) * 1000, error=str(e))
             self.logger.error(f'LLM调用失败，安全回退到标题名：{file_title}')
             return file_title
 

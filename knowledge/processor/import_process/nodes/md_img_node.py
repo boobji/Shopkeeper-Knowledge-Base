@@ -10,6 +10,7 @@ import logging
 from openai import OpenAI
 
 from knowledge.utils.minio_util import get_minio_client
+from knowledge.utils.llm_call_logger import log_llm_call
 from knowledge.processor.import_process.base import (BaseNode)
 from knowledge.processor.import_process.exceptions import ValidationError, FileProcessingError, \
     ImageProcessingError
@@ -300,7 +301,8 @@ class MarkDownImgNode(BaseNode):
         # 2.发送请求
         for img_name, img_path, images_context in target_images_context:
             self._enforce_rate_limit(request_timestamps, config.requests_per_minute, 10)
-            summary = self._get_img_summary(config, client, document_title, img_path, images_context)
+            summary = self._get_img_summary(config, client, document_title, img_path, images_context,
+                                            task_id=task_id, task_dir=task_dir)
             summaries[img_name] = summary
 
         # 3.通过映射表将每张表的摘要存储起来
@@ -340,7 +342,8 @@ class MarkDownImgNode(BaseNode):
 
         request_timestamps.append(current_time)
 
-    def _get_img_summary(self, config, client, document_title: str, img_path: str, images_context: Tuple[str, str, str]):
+    def _get_img_summary(self, config, client, document_title: str, img_path: str,
+                         images_context: Tuple[str, str, str], task_id: str = '', task_dir: str = ''):
         # 1.解包构建上下文
         section_title, pre_content, post_content = images_context
 
@@ -362,36 +365,47 @@ class MarkDownImgNode(BaseNode):
         except Exception:
             return '暂无图片'
 
-        # 4.发送请求
-        try:
-            response = client.chat.completions.create(
-                model=config.vl_model,
-                messages=[
+        # 4.发送请求（留档：完整提示词落盘，base64 由留档器自动替换为占位符）
+        request_payload = [
+            {
+                "role": "user",
+                "content": [
                     {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": f"""任务：为Markdown文档中的图片生成一个简短的中文标题。
+                        "type": "text",
+                        "text": f"""任务：为Markdown文档中的图片生成一个简短的中文标题。
                             背景信息：
                                 1. 所属文档标题："{document_title}"
                                 2. 图片上下文：{final_context}
                                 请结合图片视觉内容和上述上下文信息，用中文简要总结这张图片的内容，
                                 生成一个精准的中文标题（不要包含"图片"二字）。""",
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{local_img_content}"
-                                }
-                            }
-                        ]
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{local_img_content}"
+                        }
                     }
                 ]
+            }
+        ]
+        t0 = time.perf_counter()
+        try:
+            response = client.chat.completions.create(
+                model=config.vl_model,
+                messages=request_payload
             )
             summary = response.choices[0].message.content.strip().replace("\n", " ")
+
+            log_llm_call('import_vlm', messages=request_payload, response=summary,
+                         task_id=task_id, task_dir=task_dir, model=config.vl_model,
+                         meta={'img_path': img_path},
+                         latency_ms=(time.perf_counter() - t0) * 1000)
             return summary
         except Exception as e:
+            log_llm_call('import_vlm', messages=request_payload,
+                         task_id=task_id, task_dir=task_dir, model=config.vl_model,
+                         meta={'img_path': img_path},
+                         latency_ms=(time.perf_counter() - t0) * 1000, error=str(e))
             self.logger.warning(f"图片摘要生成失败 {img_path}: {e}")
             return "图片描述"
 

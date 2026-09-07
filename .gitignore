@@ -52,3 +52,9 @@ model_cache/
 !.env.example
 # ZCode 本地会话配置
 .zcode/
+
+# ---------- 运行时产物（补充） ----------
+# 跨文档样板段指纹库（运行时自动生成/追加，可重建）
+**/boilerplate_fingerprints.json
+# 切片体检报告（diagnose_chunks.py 输出）
+eval/reports/

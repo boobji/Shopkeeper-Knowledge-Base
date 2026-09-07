@@ -37,16 +37,21 @@ class EntryNode(BaseNode):
         # 4.获取文件后缀
         suffix = path.suffix.lower()
 
-        # 5.判断文件的后缀
+        # 5.判断文件的后缀（pdf/md 直接入对应通道；html/docx 先经转换节点转成 md）
         if suffix == '.pdf':
             state['is_pdf_read_enabled'] = True
             state['pdf_path'] = import_file_path
-        elif suffix == '.md':
+        elif suffix in ('.md', '.txt'):
+            # txt 无结构但切分器可兜底（按长度切），与 md 同通道
             state['is_md_read_enabled'] = True
             state['md_path'] = import_file_path
+        elif suffix in ('.html', '.htm'):
+            state['is_html_enabled'] = True
+        elif suffix == '.docx':
+            state['is_docx_enabled'] = True
         else:
             self.logger.debug(f'文件类型{suffix}不支持')
-            raise ValidationError(f'文件类型{suffix}不支持')
+            raise ValidationError(f'文件类型{suffix}不支持（支持 pdf/md/txt/html/htm/docx）')
 
         # 6.获取文件的标题名
         file_title = path.stem.split('.')[0]

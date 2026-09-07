@@ -1,13 +1,18 @@
 """查询流程主图
 
-使用 LangGraph 构建知识库查询工作流。
+使用 LangGraph 构建知识库查询工作流（P0 智能化改造后）。
 """
+
+from typing import List
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph.state import CompiledStateGraph
 from knowledge.processor.query_process.state import QueryGraphState
 
 from knowledge.processor.query_process.nodes.answer_output_node import AnswerOutputNode
+from knowledge.processor.query_process.nodes.answer_gate_node import AnswerGateNode
+from knowledge.processor.query_process.nodes.clarify_output_node import ClarifyOutputNode
+from knowledge.processor.query_process.nodes.intent_route_node import IntentRouteNode
 from knowledge.processor.query_process.nodes.item_name_confirm_node import ItemNameConfirmNode
 from knowledge.processor.query_process.nodes.vector_search_node import VectorSearchNode
 from knowledge.processor.query_process.nodes.hyde_search_node import HyDeSearchNode
@@ -17,20 +22,44 @@ from knowledge.processor.query_process.nodes.rrf_node import RrfNode
 from knowledge.processor.query_process.nodes.rerank_node import RerankNode
 
 
-def route_after_item_confirm(state: QueryGraphState) -> bool:
-    """商品名称确认后的路由逻辑。
+def route_after_intent(state: QueryGraphState) -> str:
+    """意图路由后的分流。
 
-    根据是否已有答案决定是否跳过搜索直接输出。
-
-    Args:
-        state: 查询图状态。
-
-    Returns:
-        True 表示已有答案需要跳过搜索，False 表示继续搜索流程。
+    chitchat 已由意图节点写好答案 → 直接去 answer_output；
+    其余意图 → item_name_confirm 继续确认商品。
     """
     if state.get("answer"):
-        return True
-    return False
+        return "answer_output"
+    return "item_name_confirm"
+
+
+def route_after_item_confirm(state: QueryGraphState) -> str:
+    """商品名称确认后的路由逻辑。
+
+    - 已有答案且带澄清候选 → clarify_output（持久化澄清槽位后再输出追问）
+    - 已有答案（降级/无法识别）→ answer_output 直接输出
+    - 无答案（已确认商品）→ 继续搜索流程
+    """
+    if state.get("answer"):
+        if state.get("clarify_options"):
+            return "clarify_output"
+        return "answer_output"
+    return "multi_search"
+
+
+def route_search_paths(state: QueryGraphState) -> List[str]:
+    """按意图分发多路搜索（P0-1 收益：闲聊外的意图不必四路全开）。
+
+    - meta（售后政策/元问题）：知识库没有这类内容，只走 Web 搜索
+    - troubleshoot（故障排查）：步骤与原因类知识在图谱里最强，图谱 + 向量
+    - compare / product_qa：现有全流程四路
+    """
+    intent = state.get("intent") or "product_qa"
+    if intent == "meta":
+        return ["web_search_mcp"]
+    if intent == "troubleshoot":
+        return ["search_embedding", "query_kg"]
+    return ["search_embedding", "search_embedding_hyde", "query_kg", "web_search_mcp"]
 
 
 def create_query_graph() -> CompiledStateGraph:
@@ -41,33 +70,31 @@ def create_query_graph() -> CompiledStateGraph:
 
     流程结构::
 
-        item_name_confirm
+        intent_route
               │
-              ├── (有答案) ────────────────────────────> answer_output
-              │                                              │
-              └── (无答案) ──> multi_search  ─────┬──────────>│
-                                   │             │           │
-                         ┌─────────┼─────────────┼───────┐   │
-                         │         │             │       │   │
-                         v         v             v       v   │
-                   embedding  hyde_embedding  query_kg  web  │
-                         │         │             │       │   │
-                         └─────────┴─────────────┴───────┘   │
-                                       │                     │
-                                       v                     │
-                                     join                    │
-                                       │                     │
-                                       v                     │
-                                      rrf                    │
-                                       │                     │
-                                       v                     │
-                                    rerank                   │
-                                       │                     │
-                                       v                     │
-                               answer_output <───────────────┘
-                                       │
-                                       v
-                                      END
+              ├── (chitchat 已直答) ──────────────────> answer_output
+              │                                             │
+              └── (其余意图) ──> item_name_confirm          │
+                                     │                      │
+                                     ├─ (澄清追问) > clarify_output ──>│
+                                     ├─ (降级/直答) ─────────────────>│
+                                     └─ (已确认商品) > multi_search   │
+                                            │                         │
+                        （按意图分发检索分支）                         │
+                                            │                         │
+                                            v                         │
+                                          join                        │
+                                            │                         │
+                                           rrf                        │
+                                            │                         │
+                                          rerank                      │
+                                            │                         │
+                                       answer_gate                    │
+                                            │                         │
+                                     answer_output <─────────────────┘
+                                            │
+                                            v
+                                           END
     """
 
     # 1. 定义LangGraph工作流
@@ -75,7 +102,9 @@ def create_query_graph() -> CompiledStateGraph:
 
     # 2. 实例化节点
     nodes = {
+        "intent_route": IntentRouteNode(),
         "item_name_confirm": ItemNameConfirmNode(),
+        "clarify_output": ClarifyOutputNode(),
         "multi_search": lambda x: x,  # 虚拟节点
         "search_embedding": VectorSearchNode(),
         "search_embedding_hyde": HyDeSearchNode(),
@@ -84,6 +113,7 @@ def create_query_graph() -> CompiledStateGraph:
         "join": lambda x: {},  # 多路搜索汇合（虚节点）
         "rrf": RrfNode(),
         "rerank": RerankNode(),
+        "answer_gate": AnswerGateNode(),
         "answer_output": AnswerOutputNode()
 
     }
@@ -92,38 +122,59 @@ def create_query_graph() -> CompiledStateGraph:
     for name, node in nodes.items():
         workflow.add_node(name, node)  # type:ignore
 
-    # 4. 设置入口点
-    workflow.set_entry_point("item_name_confirm")
+    # 4. 设置入口点：意图路由
+    workflow.set_entry_point("intent_route")
 
-    # 5. 添加条件边：商品名称确认后根据是否有答案路由
+    # 5. 意图路由后分流：闲聊直答 / 其余确认商品
+    workflow.add_conditional_edges(
+        "intent_route",
+        route_after_intent,
+        {
+            "answer_output": "answer_output",
+            "item_name_confirm": "item_name_confirm"
+        }
+    )
+
+    # 6. 商品确认后分流：澄清追问 / 降级直答 / 继续搜索
     workflow.add_conditional_edges(
         "item_name_confirm",
         route_after_item_confirm,
         {
-            False: "multi_search",
-            True: "answer_output"
+            "clarify_output": "clarify_output",
+            "answer_output": "answer_output",
+            "multi_search": "multi_search"
         }
     )
 
-    # 6. 多路搜索分发（并行执行）
-    workflow.add_edge("multi_search", "search_embedding")
-    workflow.add_edge("multi_search", "search_embedding_hyde")
-    workflow.add_edge("multi_search", "query_kg")
-    workflow.add_edge("multi_search", "web_search_mcp")
+    # 7. 澄清输出后仍要经过 answer_output（推送答案 + 写历史）
+    workflow.add_edge("clarify_output", "answer_output")
 
-    # 7. 多路搜索汇合
+    # 8. 多路搜索按意图分发（并行执行选中的分支）
+    workflow.add_conditional_edges(
+        "multi_search",
+        route_search_paths,
+        {
+            "search_embedding": "search_embedding",
+            "search_embedding_hyde": "search_embedding_hyde",
+            "query_kg": "query_kg",
+            "web_search_mcp": "web_search_mcp"
+        }
+    )
+
+    # 9. 多路搜索汇合
     workflow.add_edge("search_embedding", "join")
     workflow.add_edge("search_embedding_hyde", "join")
     workflow.add_edge("query_kg", "join")
     workflow.add_edge("web_search_mcp", "join")
 
-    # 8. 顺序边
+    # 10. 顺序边（rerank → 门控 → 答案输出）
     workflow.add_edge("join", "rrf")
     workflow.add_edge("rrf", "rerank")
-    workflow.add_edge("rerank", "answer_output")
+    workflow.add_edge("rerank", "answer_gate")
+    workflow.add_edge("answer_gate", "answer_output")
     workflow.add_edge("answer_output", END)
 
-    # 9. 返回可运行的状态
+    # 11. 返回可运行的状态
     return workflow.compile()
 
 

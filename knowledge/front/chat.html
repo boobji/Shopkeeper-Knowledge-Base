@@ -217,6 +217,40 @@
       40%{transform:translateY(-5px);opacity:1}
     }
 
+    /* 可点击 chips：澄清候选 / 建议问法 */
+    .chips{
+      margin-top:10px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .chip{
+      border:1px solid rgba(56, 189, 248, 0.4);
+      background:rgba(56, 189, 248, 0.08);
+      color:#bae6fd;
+      font-size:13px;
+      padding:7px 12px;
+      border-radius:999px;
+      cursor:pointer;
+      user-select:none;
+      transition:background .15s, border-color .15s;
+      max-width:100%;
+      overflow-wrap:break-word;
+    }
+    .chip:hover{
+      background:rgba(56, 189, 248, 0.2);
+      border-color:rgba(56, 189, 248, 0.7);
+    }
+    .chips.suggest .chip{
+      border-color:rgba(129, 140, 248, 0.4);
+      background:rgba(129, 140, 248, 0.08);
+      color:#c7d2fe;
+    }
+    .chips.suggest .chip:hover{
+      background:rgba(129, 140, 248, 0.2);
+      border-color:rgba(129, 140, 248, 0.7);
+    }
+
     .composer{
       border-top:1px solid var(--border);
       padding:12px 14px;
@@ -657,7 +691,69 @@
       answerEl.className = 'answer';
       bubble.appendChild(answerEl);
       renderAnswerWithImages(answerEl, answer || '', imageUrls || []);
+
+      // 澄清追问：渲染可点击候选 chips（点击发送结构化 selected_item）
+      const clarifyOptions = parseClarifyOptions(answer || '');
+      if(clarifyOptions && clarifyOptions.length > 0){
+        renderClarifyChips(bubble, clarifyOptions);
+      }
+
       if(progressEl) bubble.appendChild(progressEl);
+    }
+
+    // ==================== 澄清 chips / 建议问法 chips ====================
+
+    function parseClarifyOptions(answerText){
+      // 仅当答案明确是澄清追问时才解析编号候选，避免把普通编号列表误判成选项
+      const t = String(answerText || '');
+      const isClarify = t.includes('请回复编号或产品名称') ||
+                        t.includes('我不确定您指的是哪款产品') ||
+                        t.includes('我还是没能识别出您询问的产品');
+      if(!isClarify) return [];
+      const options = [];
+      const lines = t.split(/\r?\n/);
+      for(const line of lines){
+        const m = line.match(/^\s*(\d+)\s*[.、)）]\s*(.+?)\s*$/);
+        if(m && m[2] && !options.includes(m[2])) options.push(m[2]);
+      }
+      return options;
+    }
+
+    function removeAllChips(cls){
+      for(const el of Array.from(chatEl.querySelectorAll(cls))) el.remove();
+    }
+
+    function renderClarifyChips(bubbleEl, options){
+      removeAllChips('.chips.clarify'); // 全局只保留最新一轮澄清
+      const wrap = document.createElement('div');
+      wrap.className = 'chips clarify';
+      for(const opt of options){
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = opt;
+        chip.addEventListener('click', () => onSend('', opt));
+        wrap.appendChild(chip);
+      }
+      bubbleEl.appendChild(wrap);
+      scrollToBottom();
+    }
+
+    function renderSuggestChips(botMsgEl, suggestions){
+      if(!Array.isArray(suggestions) || suggestions.length === 0) return;
+      removeAllChips('.chips.suggest'); // 新建议覆盖旧建议
+      const bubble = botMsgEl.querySelector('.bubble');
+      if(!bubble) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'chips suggest';
+      for(const s of suggestions){
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = s;
+        chip.addEventListener('click', () => onSend(s, ''));
+        wrap.appendChild(chip);
+      }
+      bubble.appendChild(wrap);
+      scrollToBottom();
     }
 
     async function loadHistory(){
@@ -681,16 +777,18 @@
       }catch(_){}
     }
 
-    async function submitQuery(text){
+    async function submitQuery(text, selectedItem){
       const isStream = streamToggle.checked;
+      const body = {
+        query: text,
+        session_id: sessionId,
+        is_stream: isStream
+      };
+      if(selectedItem) body.selected_item = selectedItem;
       const res = await fetch(`${API_BASE}/query`, {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          query: text,
-          session_id: sessionId,
-          is_stream: isStream
-        })
+        body: JSON.stringify(body)
       });
       if(!res.ok){
         const msg = await res.text();
@@ -724,29 +822,33 @@
       }, 1200);
     }
 
-    async function onSend(){
+    async function onSend(forcedText, selectedItem){
       console.log('[perf] A onSend start', performance.now());
-      const text = (inputEl.value || '').trim();
+      const text = (forcedText || inputEl.value || '').trim();
       if(!text) return;
       inputEl.value = '';
-      addUserMsg(text);
+      // 发新消息时清掉上一轮遗留的 chips
+      removeAllChips('.chips.clarify');
+      removeAllChips('.chips.suggest');
+      addUserMsg(selectedItem ? `${text}（点击选择了该产品）` : text);
       const botMsgEl = addBotMsgSkeleton();
       sendBtn.disabled = true;
 
       try{
         const isStream = streamToggle.checked;
         console.log('[perf] B submitQuery start', performance.now(), { isStream });
-        const data = await submitQuery(text);
+        const data = await submitQuery(text, selectedItem);
         console.log('[perf] B submitQuery end', performance.now(), data);
-        
+
         // 渲染初始状态
         renderProgress(botMsgEl, [], [], 'pending');
 
         if (!isStream) {
           // 非流式：直接拿到结果
-          // data: { session_id, answer, done_list, error, message }
+          // data: { session_id, answer, suggestions, error, message }
           renderProgress(botMsgEl, data.done_list || [], [], 'completed');
           finalizeBotAnswer(botMsgEl, data.answer, data.error, data.image_urls || []);
+          renderSuggestChips(botMsgEl, data.suggestions || []);
           sendBtn.disabled = false;
           return;
         }
@@ -790,6 +892,13 @@
               renderAnswerWithImages(answerEl, rawAnswerText, []);
               scrollToBottom();
             }
+          }catch(_){}
+        });
+
+        es.addEventListener('suggestions', (e) => {
+          try{
+            const d = JSON.parse(e.data || '{}');
+            renderSuggestChips(botMsgEl, d.suggestions || []);
           }catch(_){}
         });
 

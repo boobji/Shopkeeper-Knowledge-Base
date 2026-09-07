@@ -93,9 +93,12 @@ class HistoryMongoTool:
             self.client = MongoClient(self.mongo_url)
             self.db = self.client[self.db_name]
             self.chat_message = self.db["chat_message"]
+            # 会话槽位（如澄清循环的 pending_clarify），按 session_id 一行
+            self.chat_session = self.db["chat_session"]
 
             # 加速按会话查询
             self.chat_message.create_index([("session_id", 1), ("ts", -1)])
+            self.chat_session.create_index([("session_id", 1)], unique=True)
 
             logger.info(f"Successfully connected to MongoDB: {self.db_name}")
         except Exception as e:

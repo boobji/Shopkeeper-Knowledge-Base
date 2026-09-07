@@ -95,3 +95,53 @@ def get_recent_messages(session_id: str, limit: int = 10) -> List[Dict[str, Any]
     except Exception as e:
         logger.error(f"Error getting recent messages: {e}")
         return []
+
+
+# ==================== 会话槽位：澄清循环 pending_clarify ====================
+
+def get_pending_clarify(session_id: str) -> Dict[str, Any]:
+    """读取会话的澄清槽位。
+
+    Returns:
+        {"options": [...], "turn": int, "last_query": str}；不存在或出错返回 {}。
+    """
+    mongo_tool = get_history_mongo_tool()
+    try:
+        doc = mongo_tool.chat_session.find_one({"session_id": session_id})
+    except Exception as e:
+        logger.error(f"Error getting pending_clarify for session {session_id}: {e}")
+        return {}
+    if not doc:
+        return {}
+    return {
+        "options": doc.get("options") or [],
+        "turn": int(doc.get("turn") or 0),
+        "last_query": doc.get("last_query") or "",
+    }
+
+
+def save_pending_clarify(session_id: str, options: List[str], turn: int, last_query: str = "") -> bool:
+    """写入/更新会话的澄清槽位（按 session_id 覆盖）。"""
+    mongo_tool = get_history_mongo_tool()
+    try:
+        mongo_tool.chat_session.update_one(
+            {"session_id": session_id},
+            {"$set": {"options": list(options), "turn": int(turn),
+                      "last_query": last_query, "ts": datetime.now().timestamp()}},
+            upsert=True,
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Error saving pending_clarify for session {session_id}: {e}")
+        return False
+
+
+def clear_pending_clarify(session_id: str) -> bool:
+    """清除会话的澄清槽位（商品已确认/降级结束/会话清空时调用）。"""
+    mongo_tool = get_history_mongo_tool()
+    try:
+        mongo_tool.chat_session.delete_many({"session_id": session_id})
+        return True
+    except Exception as e:
+        logger.error(f"Error clearing pending_clarify for session {session_id}: {e}")
+        return False

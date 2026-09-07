@@ -30,7 +30,8 @@ class QueryService:
         if is_stream:
             create_sse_queue(task_id)
 
-    def run_query_graph(self, task_id: str, session_id: str, user_query: str, is_stream: bool):
+    def run_query_graph(self, task_id: str, session_id: str, user_query: str, is_stream: bool,
+                        selected_item: str = None):
         """执行 LangGraph 查询流程。"""
         try:
             default_state = {
@@ -38,6 +39,7 @@ class QueryService:
                 "session_id": session_id,
                 "task_id": task_id,
                 "is_stream": is_stream,
+                "selected_item": selected_item or "",
             }
             query_app.invoke(default_state)
         except Exception as e:
@@ -59,6 +61,9 @@ class QueryService:
 
     def get_answer(self, task_id: str) -> str:
         return get_task_result(task_id, "answer", "")
+
+    def get_suggestions(self, task_id: str) -> List[str]:
+        return get_task_result(task_id, "suggestions", [])
 
     def get_history(self, session_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         from knowledge.utils.mongo_history_util import get_recent_messages

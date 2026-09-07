@@ -38,15 +38,19 @@ def register_routes(app: FastAPI):
         if request.is_stream:
             # daemon 线程承载长耗时查询，避免 uvicorn 关闭时被后台任务卡住
             run_in_daemon_thread(
-                service.run_query_graph, task_id, session_id, request.query, True
+                service.run_query_graph, task_id, session_id, request.query, True,
+                request.selected_item,
             )
             return StreamSubmitResponse(
                 message="Query submitted", session_id=session_id, task_id=task_id
             )
 
-        service.run_query_graph(task_id, session_id, request.query, False)
+        service.run_query_graph(task_id, session_id, request.query, False,
+                                request.selected_item)
         answer = service.get_answer(task_id)
-        return QueryResponse(message="处理完成", session_id=session_id, answer=answer)
+        suggestions = service.get_suggestions(task_id)
+        return QueryResponse(message="处理完成", session_id=session_id, answer=answer,
+                             suggestions=suggestions)
 
     @app.get("/stream/{task_id}")
     async def stream(task_id: str, request: Request):

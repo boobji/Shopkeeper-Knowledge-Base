@@ -77,6 +77,24 @@ class QueryConfig:
         default_factory=lambda: float(os.getenv("ITEM_NAME_SPARSE_WEIGHT", "0.5"))
     )
 
+    # ==================== 意图路由配置 ====================
+    intent_route_enabled: bool = field(
+        default_factory=lambda: os.getenv("INTENT_ROUTE_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on")
+    )
+
+    # ==================== 澄清循环配置 ====================
+    clarify_max_turns: int = field(
+        default_factory=lambda: int(os.getenv("CLARIFY_MAX_TURNS", "2"))
+    )  # 澄清最多追问轮数，超过后降级为"请提供完整型号"
+
+    # ==================== 检索质量门控配置 ====================
+    answer_confidence_floor: float = field(
+        default_factory=lambda: float(os.getenv("ANSWER_CONFIDENCE_FLOOR", "0.0"))
+    )  # top1 分数低于该值 → 坦诚兜底（bge-reranker-v2-m3 分数量纲约 -11 ~ +5）
+    answer_warn_score: float = field(
+        default_factory=lambda: float(os.getenv("ANSWER_WARN_SCORE", "2.0"))
+    )  # top1 分数低于该值 → 答案附"仅供参考"提示
+
     # ==================== 知识图谱配置 ====================
     kg_entity_align_min_score: Optional[float] = field(
         default_factory=lambda: (

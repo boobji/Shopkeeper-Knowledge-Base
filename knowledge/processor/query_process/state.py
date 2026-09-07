@@ -3,7 +3,7 @@
 定义完整的查询状态结构和辅助函数。
 """
 
-from typing import TypedDict, List
+from typing import TypedDict, List, Dict
 import copy
 
 
@@ -30,6 +30,13 @@ class QueryGraphState(TypedDict):
     is_stream: bool # 是否流式输出
     kg_chunks: list # 知识图谱切片
     kg_triples: list # 知识图谱关系
+    # ==================== P0 智能化改造新增 ====================
+    selected_item: str  # 前端点击澄清选项后回传的结构化商品名（优先级最高）
+    intent: str  # 意图标签：chitchat/meta/troubleshoot/compare/product_qa
+    clarify_options: List[str]  # 本次需要向用户澄清的候选商品（非空时走 clarify_output）
+    clarify_turn: int  # 澄清轮次（从 1 计数，超过 clarify_max_turns 降级）
+    answer_notice: str  # 低置信检索提示（附加在答案尾部）
+    suggestions: List[str]  # 生成答案后的 3 个建议问法
 
 
 # ==================== 默认状态 ====================
@@ -51,7 +58,13 @@ DEFAULT_STATE: QueryGraphState = {
     "history": [],                  # 历史对话
     "is_stream": False,             # 是否流式输出 (默认设为 False)
     "kg_chunks": [],                # 知识图谱切片
-    "kg_triples": []                # 知识图谱关系
+    "kg_triples": [],               # 知识图谱关系
+    "selected_item": "",            # 结构化商品选择
+    "intent": "product_qa",         # 意图标签（默认产品咨询）
+    "clarify_options": [],          # 澄清候选商品
+    "clarify_turn": 0,              # 澄清轮次
+    "answer_notice": "",            # 低置信检索提示
+    "suggestions": []               # 建议问法
 }
 
 def create_default_state(**overrides) -> QueryGraphState:
